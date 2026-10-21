@@ -30,3 +30,6 @@ Thumbs.db
 
 # assessment brief from the company - keep it out of the (possibly public) repository
 /*.pdf
+
+# documentation folder - not pushed to the public repository
+docs/
