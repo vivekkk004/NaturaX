@@ -140,3 +140,23 @@ RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
 
 - An integration test used `new Date('2026-10-20T18:00')`, which depends on the machine's timezone
   and would fail on a UTC CI server → replaced with an explicit IST helper; suite re-run with `TZ=UTC`.
+
+## Part 5 – Task APIs and audit trail
+
+**Built**
+
+- `modules/tasks/taskQuery.js` – one filter builder (status/UNRESOLVED, rule, priority, employee,
+  unassigned, overdue, search, order-date range, employee scoping) reused by tasks, dashboard and reports.
+- `GET /tasks` (paginated, sortable incl. priority via `priorityRank`), `GET /tasks/:id`,
+  `GET /tasks/:id/audit`, `PATCH /tasks/:id/status` (role-based transition table, optimistic
+  locking, resolution note), `PATCH /tasks/:id/assign` (manager; overdue → fresh deadline +
+  SLA breach kept; TASK_ASSIGNED vs REASSIGNED).
+- `GET /audit` – filtered, paginated, employees limited to their own tasks' history.
+- `Task` gained `priorityRank` and a computed `isOverdue` virtual.
+- Tests: 106 passing – incl. employee scoping, transitions, overdue reassignment (challenge 5)
+  and a rollback test proving reassignment + audit are atomic.
+
+**Issues met and fixed**
+
+- Explicit deadlines lost their milliseconds (the date parser works to the second) – a test
+  expectation was adjusted; second precision is intended for deadlines.

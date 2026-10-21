@@ -200,3 +200,20 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
   update/delete endpoint; entries are written in the same transaction as the change. The responsible
   user's name is snapshotted. Limitation: someone with direct DB access can still alter data –
   production would use DB roles without update/delete on this collection, or WORM storage.
+
+## D26. Task changes: transaction + optimistic locking
+
+- A status change or reassignment and its audit entry are written in **one transaction**: a test
+  makes the audit insert fail and verifies the reassignment is rolled back. (On a standalone
+  MongoDB the fallback writes each document atomically – see D8.)
+- The update filter includes the values that were read (`status`, `assignedTo`): if another user
+  changed the task in between, nothing is written and the API answers `409` instead of silently
+  overwriting their change ("optimistic locking").
+- Status transitions are an explicit table per role; only managers reopen resolved tasks.
+
+## D27. Reassigning an overdue task
+
+- The new owner gets a fresh deadline (rule's `deadlineHours` from now, or an explicit one),
+  because inheriting a deadline that has already passed tells them nothing.
+- `slaBreached` stays `true`, so "% of tasks resolved within SLA" is not flattered by reassignment;
+  the audit entry records how late the task was, old and new owner and old and new deadline.

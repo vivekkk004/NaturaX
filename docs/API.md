@@ -318,3 +318,127 @@ Runs the rule engine over all relevant orders now. Body (optional): `{ "asOf": "
 `POST /imports` runs the rule engine right after a successful import and includes the same
 summary as `data.taskSummary`. If the evaluation itself fails, the import still succeeds and
 `data.ruleEvaluationError` explains that rules should be run again.
+
+---
+
+## Tasks – Manager (all tasks) / Employee (only tasks assigned to them)
+
+Every task in a response includes `isOverdue` (computed: unresolved and deadline passed),
+`priorityRank` (1 HIGH … 3 LOW) and populated `assignedTo` / `resolvedBy` (`{ id, name, employeeCode }`).
+
+### `GET /tasks`
+
+| Query                | Notes                                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `status`             | `OPEN` \| `IN_PROGRESS` \| `RESOLVED` \| `UNRESOLVED` (= open + in progress)                                                                                 |
+| `ruleType`           | exception category                                                                                                                                           |
+| `priority`           | `HIGH` \| `MEDIUM` \| `LOW`                                                                                                                                  |
+| `assignedTo`         | user id or `unassigned` (ignored for employees – always their own)                                                                                           |
+| `overdue`            | `true` → unresolved and past deadline                                                                                                                        |
+| `search`             | order ID, customer name or phone                                                                                                                             |
+| `dateFrom`, `dateTo` | order-date range (IST days)                                                                                                                                  |
+| `sort`               | `deadline` (default, most urgent first), `priority` (HIGH first), `detectedAt`, `orderDate`, `orderValue`, `orderId`, `updatedAt`; prefix `-` for descending |
+
+```
+GET /api/tasks?status=UNRESOLVED&priority=HIGH&overdue=true&sort=deadline
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "6716…",
+      "orderId": "A2",
+      "ruleType": "FAILED_DELIVERY",
+      "reason": "Delivery attempt failed: courier status \"Delivery Failed\" (COD - risk of return)",
+      "priority": "HIGH",
+      "priorityRank": 1,
+      "actionRequired": "Call the customer today to confirm address and availability, …",
+      "deadline": "2026-09-20T16:30:00.000Z",
+      "isOverdue": true,
+      "slaBreached": false,
+      "status": "OPEN",
+      "customer": { "name": "Meena Das", "phone": "9876543214" },
+      "orderValue": 2150,
+      "orderStatus": "DELIVERY_FAILED",
+      "paymentType": "COD",
+      "assignedTo": { "id": "6716…", "name": "Priya Sharma", "employeeCode": "EMP001" }
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```
+
+### `GET /tasks/:id` · `GET /tasks/:id/audit`
+
+One task / its full audit history (oldest first). Employees get `404` for tasks that are not theirs.
+
+### `PATCH /tasks/:id/status`
+
+```json
+{ "status": "RESOLVED", "note": "Customer confirmed new address, re-attempt booked" }
+```
+
+| From → To                              | Employee (own task) | Manager |
+| -------------------------------------- | ------------------- | ------- |
+| OPEN → IN_PROGRESS / RESOLVED          | ✓                   | ✓       |
+| IN_PROGRESS → OPEN / RESOLVED          | ✓                   | ✓       |
+| RESOLVED → OPEN / IN_PROGRESS (reopen) | ✗ (400)             | ✓       |
+
+Resolving stores `resolvedAt`, `resolvedBy`, `resolutionNote`. Same status → `400`. If the task was
+changed by someone else in the meantime → `409 CONFLICT`. Writes a `STATUS_CHANGED` audit entry
+(old → new) in the same transaction.
+
+### `PATCH /tasks/:id/assign` – **Manager only**
+
+```json
+{ "assignedTo": "6716…", "deadline": "2026-10-22T18:00", "note": "Priya on leave" }
+```
+
+- Assigning an unassigned task → audit `TASK_ASSIGNED`; changing owner → `REASSIGNED`.
+- **Overdue task:** if no `deadline` is given, the new owner gets `now + rule's deadlineHours`;
+  `slaBreached` is set to `true` and stays true. The audit entry records old/new owner and
+  deadline and "Task was overdue by 2d 4h".
+- `400` if the task is resolved, the assignee is unknown/deactivated or already the owner, or the
+  deadline is in the past. Task update + audit entry are one transaction.
+
+---
+
+## Audit trail – Manager (everything) / Employee (history of their own tasks)
+
+### `GET /audit`
+
+Read-only (no create/update/delete endpoints exist). Query: `action`, `orderId` (partial),
+`ruleType`, `taskId`, `performedBy` (user id or `system`), `dateFrom`/`dateTo` (entry time),
+`sort` (`createdAt`, default `-createdAt`), `page`, `limit`.
+
+```json
+{
+  "data": [
+    {
+      "id": "6716…",
+      "action": "REASSIGNED",
+      "task": "6716…",
+      "orderId": "A2",
+      "ruleType": "FAILED_DELIVERY",
+      "performedBy": "6716…",
+      "performedByName": "Meera Nair",
+      "oldValue": {
+        "assignedTo": "6716…",
+        "name": "Priya Sharma",
+        "deadline": "2026-09-20T16:30:00.000Z",
+        "overdue": true
+      },
+      "newValue": {
+        "assignedTo": "6716…",
+        "name": "Rahul Verma",
+        "employeeCode": "EMP002",
+        "deadline": "2026-10-21T11:00:00.000Z"
+      },
+      "note": "Priya on leave | Task was overdue by 30d 18h; new deadline 21-10-2026 16:30; SLA breach kept on record",
+      "createdAt": "2026-10-21T07:00:00.000Z"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```

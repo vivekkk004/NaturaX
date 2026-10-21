@@ -1,4 +1,5 @@
 import { AUDIT_ACTION } from '../../constants/audit.js';
+import { PRIORITY_RANK } from '../../constants/rules.js';
 import { TASK_STATUS, UNRESOLVED_STATUSES } from '../../constants/tasks.js';
 import { Task } from '../../models/Task.js';
 import { User } from '../../models/User.js';
@@ -34,6 +35,7 @@ function newTaskDocument(order, exception, now) {
     ruleType: exception.ruleType,
     reason: exception.reason,
     priority: exception.priority,
+    priorityRank: PRIORITY_RANK[exception.priority],
     actionRequired: exception.actionRequired,
     deadline: exception.deadline,
     ...snapshot(order),
@@ -196,6 +198,7 @@ export async function syncTasks(evaluations, { now, actor, note, session }) {
           status: TASK_STATUS.OPEN,
           reason: exception.reason,
           priority: exception.priority,
+          priorityRank: PRIORITY_RANK[exception.priority],
           actionRequired: exception.actionRequired,
           deadline: exception.deadline,
           ...snapshot(order),

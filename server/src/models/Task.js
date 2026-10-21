@@ -22,6 +22,7 @@ const taskSchema = new mongoose.Schema(
 
     reason: { type: String, required: true },
     priority: { type: String, enum: PRIORITY_VALUES, required: true },
+    priorityRank: { type: Number, required: true }, // 1 = HIGH ... 3 = LOW, for sorting
     actionRequired: { type: String, required: true },
     deadline: { type: Date, required: true },
 
@@ -63,6 +64,14 @@ taskSchema.index({ ruleType: 1, priority: 1, status: 1 });
 // Daily report "new exceptions" and dashboard date filters.
 taskSchema.index({ detectedAt: -1 });
 taskSchema.index({ orderDate: -1 });
+
+/**
+ * Overdue = deadline passed and not resolved. Computed on read (never stored), so it can't go stale.
+ * Included in every API response through toJSON virtuals.
+ */
+taskSchema.virtual('isOverdue').get(function isOverdue() {
+  return this.status !== TASK_STATUS.RESOLVED && this.deadline < new Date();
+});
 
 taskSchema.plugin(toJSONPlugin);
 

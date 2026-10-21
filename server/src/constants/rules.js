@@ -11,3 +11,6 @@ export const RULE_TYPE_VALUES = Object.values(RULE_TYPE);
 
 export const PRIORITY = Object.freeze({ HIGH: 'HIGH', MEDIUM: 'MEDIUM', LOW: 'LOW' });
 export const PRIORITY_VALUES = Object.values(PRIORITY);
+
+/** Numeric rank so "sort by priority" means HIGH first (alphabetical order would be wrong). */
+export const PRIORITY_RANK = Object.freeze({ HIGH: 1, MEDIUM: 2, LOW: 3 });
