@@ -107,4 +107,6 @@ A running record of what was built in each part and why.
   error handler now maps Express's own 4xx errors correctly.
 - `withTransaction` can retry its callback, so the persistence step was made side-effect free on
   the in-memory results (it returns what it found instead of mutating).
-- While updating docs, a PowerShell 5.1 find-and-replace read two UTF-8 Markdown files as ANSI and`n  corrupted their special characters (mojibake). Both files were restored from git and re-edited`n with an encoding-safe tool; a repo-wide search confirmed no other file was affected.
+- While updating docs, a PowerShell 5.1 find-and-replace read two UTF-8 Markdown files as ANSI and
+  corrupted their special characters (mojibake). Both files were restored from git and re-edited
+  with an encoding-safe tool; a repo-wide search confirmed no other file was affected.
