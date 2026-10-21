@@ -3,6 +3,27 @@ import { logger } from './logger.js';
 
 const state = { transactionsSupported: false };
 
+/** Turns the most common local connection failures into an actionable message. */
+function connectionHint(uri, err) {
+  const detail = `${err.message} ${err.cause?.message ?? ''}`;
+  if (/::1/.test(detail) || /\/\/localhost[:/]/.test(uri)) {
+    return (
+      '"localhost" resolves to IPv6 (::1) first on Windows, but MongoDB listens on IPv4 only. ' +
+      'Use 127.0.0.1 in MONGODB_URI (e.g. mongodb://127.0.0.1:27017/naturax_followup).'
+    );
+  }
+  if (/replicaSet=/i.test(uri)) {
+    return (
+      'MONGODB_URI requests a replica set. Either remove "?replicaSet=..." or enable it: add ' +
+      '"replication: replSetName: rs0" to mongod.cfg, restart MongoDB, run "npm run db:init-replica -w server".'
+    );
+  }
+  if (/ECONNREFUSED|ENOTFOUND|timed out|Server selection/i.test(detail)) {
+    return 'MongoDB is not reachable. Is the service running? (Windows: Get-Service MongoDB / Start-Service MongoDB)';
+  }
+  return err.message;
+}
+
 /**
  * Connects to MongoDB and detects whether multi-document transactions are available.
  * Transactions only work on a replica set (or sharded cluster); a plain standalone
@@ -15,7 +36,12 @@ export async function connectDB(uri) {
   mongoose.connection.on('reconnected', () => logger.info('MongoDB reconnected'));
   mongoose.connection.on('error', (err) => logger.error({ err }, 'MongoDB connection error'));
 
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+  } catch (err) {
+    // The driver's "server selection" error is a large dump; tell the developer what to fix.
+    throw new Error(`Cannot connect to MongoDB: ${connectionHint(uri, err)}`, { cause: err });
+  }
 
   const hello = await mongoose.connection.db.admin().command({ hello: 1 });
   state.transactionsSupported = Boolean(hello.setName || hello.msg === 'isdbgrid');
