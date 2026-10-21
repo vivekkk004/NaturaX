@@ -235,3 +235,45 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
   current state – a historical "as it was on date X" view would need event sourcing from the audit log.
 - If an error happens after the download started, the error handler hands over to Express, which
   aborts the connection (a JSON error body is impossible once CSV headers were sent).
+
+## D30. Frontend: Redux Toolkit slices + createAsyncThunk, services, selectors
+
+- One slice per domain; every API call is a thunk with pending/fulfilled/rejected handled in
+  `extraReducers`; components read state only through selectors and never import axios.
+- Thunks read filters/sort/page from the store, and pages re-fetch when a memoised query selector
+  changes – one source of truth for what is on screen.
+- Each list slice remembers the latest `requestId` and ignores late responses from older requests.
+- **Alternative:** RTK Query (less boilerplate, built-in caching). Not used because the brief asked
+  for `createAsyncThunk` and the explicit flow is easier to explain; it is a natural next step.
+
+## D31. Token handling in the browser
+
+- Access token only in Redux memory (not localStorage → not readable by injected scripts from
+  storage); refresh token only in an httpOnly cookie. Start-up restore and the axios 401 handler
+  both use `/auth/refresh`; the interceptor shares one in-flight refresh between all failing
+  requests. Restore runs only from `idle`, because refresh tokens are single-use (a duplicate
+  restore found during UI testing could otherwise log the user out).
+- On logout or expiry the root reducer resets every slice.
+
+## D32. Code-split pages, production served by Express
+
+- Pages are `React.lazy` chunks; the dashboard's chart library is not downloaded on the login page
+  (initial JavaScript dropped from 770 kB / 232 kB gzipped to 377 kB / 122 kB gzipped).
+- In production Express serves `client/dist` (hashed assets `immutable`, 1 year; SPA fallback for
+  client routes): one process and port, same origin for the refresh cookie, no CORS in production.
+
+## D33. Charts: validated palette, table view
+
+- Two-series stacked bars use categorical slots 1 and 2 (blue/orange), checked with a palette
+  validator for colour-vision-deficiency separation and contrast; thin bars, 2 px gaps, hairline grid,
+  legend + tooltip, and a Chart/Table toggle so exact numbers are available to everyone.
+- Status meaning (priority, overdue) is always text + icon in badges, never colour alone.
+
+## D34. Deterministic sample data, verified by tests
+
+- The generator uses a seeded PRNG and a reference time, so the same reference time produces the same
+  file and the documented expected results are reproducible ("Evaluate as of" on upload). An
+  integration test imports the CSV and XLSX versions and checks every count, at several times of day
+  (it caught a date-boundary bug in the generator).
+- The seed builds a realistic state through the real services (so activity is audited) and uses
+  different order IDs (`NXS-`) from the upload sample (`NX-`).

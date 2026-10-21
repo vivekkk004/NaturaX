@@ -123,6 +123,7 @@ One document per exception (exception and task are 1:1).
 | `ruleType`                                                                     | String           | exception category                                                                                            |
 | `reason`                                                                       | String           | with real numbers: "Order unconfirmed for 5h 12m (limit 2h)"                                                  |
 | `priority`                                                                     | String           | `HIGH` \| `MEDIUM` \| `LOW`                                                                                   |
+| `priorityRank`                                                                 | Number           | 1 / 2 / 3 – lets "sort by priority" put HIGH first (alphabetical order would not)                             |
 | `actionRequired`                                                               | String           | recommended next action                                                                                       |
 | `deadline`                                                                     | Date             | detection time + rule's `deadlineHours`                                                                       |
 | `customer.name/phone`, `orderValue`, `orderDate`, `paymentType`, `orderStatus` | –                | **snapshot** of the order for lists, filters and reports without joins; refreshed when the order data changes |

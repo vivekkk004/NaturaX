@@ -221,3 +221,16 @@ RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
   no CSP errors). Vite proxy target configurable via `API_PROXY_TARGET`.
 - **Docker:** multi-stage `Dockerfile` (non-root user) and `docker-compose.yml` (MongoDB replica set
   with self-initialising healthcheck + app). Not executed - Docker is not installed on this machine.
+
+## Part 10 – Final documentation
+
+- `README.md` rewritten as the complete guide: feature → requirement map, quick start, demo logins,
+  sample data, commands, Docker, environment variables, transactions, structure, assumptions.
+- `docs/BUSINESS_IMPACT.md` – the PDF's five demo questions: manual work removed, how forgetting is
+  prevented, effectiveness metrics (with how to compute each), time-saved estimation method and
+  worked example, limitations with next steps.
+- `docs/INTERVIEW_PREP.md` – pitch, pre-demo checklist, 5-minute demo script, step-by-step guide for
+  each live challenge, live code-change drills, likely questions with answers, key numbers.
+- `docs/ARCHITECTURE.md` – Parts 5–6 flow, frontend architecture diagram, deployment view.
+- `docs/DESIGN_DECISIONS.md` – frontend, auth-in-browser, code splitting, charts, sample data (D30–D34).
+- `docs/DATABASE.md`, `sample-data/README.md` – priorityRank, main sample file expectations.

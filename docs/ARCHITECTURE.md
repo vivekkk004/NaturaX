@@ -76,8 +76,8 @@ server/
 │  ├─ jobs/             ruleEvaluation.job.js (node-cron, every 15 min)
 │  ├─ models/           User, RefreshToken, Order, ImportBatch, RuleConfig, Task,
 │  │                    AuditLog (+ plugins/toJSON)
-│  ├─ modules/          health, auth, users, imports, orders, rules, tasks (sync),
-│  │                    audit (dashboard, reports added in later parts)
+│  ├─ modules/          health, auth, users, imports, orders, rules, tasks (CRUD, sync,
+│  │                    query, stats), audit, dashboard, reports
 │  ├─ rule-engine/      BaseRule, rules/*.rule.js, registry, engine (pure), format
 │  └─ utils/            dates (IST), pagination, tokens, validation
 ├─ scripts/             initReplicaSet.js, seedUsers.js (+ full seed, sample generator later)
@@ -85,11 +85,20 @@ server/
 └─ uploads/             uploaded files (git-ignored)
 
 client/
-├─ index.html · vite.config.js (dev proxy /api → :5000)
+├─ index.html · vite.config.js (dev proxy /api → :5000, API_PROXY_TARGET to override)
 └─ src/
-   ├─ main.jsx · App.jsx · index.css (Tailwind + brand theme)
-   └─ services/         api.js (single axios instance) + one service per domain
-   (store/, features/, components/, pages/, routes/, hooks/, utils/ added in Part 7)
+   ├─ main.jsx          Provider, Router, ErrorBoundary, Toaster
+   ├─ App.jsx           restores the session on start-up
+   ├─ store/            configureStore + rootReducer (resets every slice on logout)
+   ├─ services/         api.js (axios instance + auth interceptors), one service per domain
+   ├─ features/         one folder per domain: <domain>Slice.js (+ components/)
+   │                    auth, dashboard, tasks, orders, imports, reports, audit, rules, employees
+   ├─ components/       common/ (DataTable, Pagination, FilterBar, Badges, Modal, StatCard,
+   │                    Loader, ErrorBoundary, States, PageHeader) and layout/AppLayout
+   ├─ pages/            one per route (lazy-loaded)
+   ├─ routes/           AppRoutes, ProtectedRoute (auth + role guard)
+   ├─ hooks/            useDebounce, useAssignableUsers
+   └─ utils/            constants (labels), format (IST, ₹), auditFormat, download
 ```
 
 ## 5. Transactions strategy
@@ -141,8 +150,57 @@ sequenceDiagram
 
 Details, the idempotency table and how to change or add a rule: [RULE_ENGINE.md](RULE_ENGINE.md).
 
-## 8. Planned components (later parts)
+## 8. Tasks, audit, dashboard and report (Parts 5–6)
 
-- **Task APIs + audit APIs:** list/filter tasks, status changes, reassignment (transaction with
-  audit), audit trail queries (Part 5).
-- **Dashboard + daily CSV report** with server-side filters and streamed CSV (Part 6).
+- **One filter builder** (`modules/tasks/taskQuery.js`) is shared by the task list, the dashboard
+  aggregation and the daily report, so a widget and the list it drills into always agree. It also
+  forces `assignedTo = me` for employees.
+- **Status change / reassignment:** `withTransaction` → read task → check role transition table →
+  conditional `findOneAndUpdate` (expected status/owner in the filter = optimistic lock, 409 on
+  conflict) → audit entry in the same session.
+- **Dashboard:** one `$facet` aggregation computes every task widget in a single pass; order
+  counts run in parallel; employee workload is a shared aggregation.
+- **Daily report CSV:** MongoDB cursor → one CSV line at a time → `res.write`, pausing on
+  backpressure (`drain`), so memory stays flat for any report size.
+
+## 9. Frontend architecture (Parts 7–8)
+
+```mermaid
+flowchart LR
+  P[Page component] -- dispatch thunk --> T[createAsyncThunk]
+  T -- calls --> S[services/*.js]
+  S -- axios instance --> I[interceptors<br/>Bearer token · silent refresh]
+  I --> API[(Express API)]
+  T -- pending/fulfilled/rejected --> R[slice reducer<br/>items · pagination · status · error]
+  R -- selectors --> P
+```
+
+- **State:** one Redux Toolkit slice per domain; each list slice keeps `items, pagination, filters,
+sort, page, limit, status, error`. Thunks read filters from the store (`getState`), so pages
+  just `dispatch(fetchTasks())` whenever the memoised query selector changes.
+- **Stale responses:** list slices store the `requestId` of the latest request and ignore older
+  responses that arrive late (fast filter changes never show outdated rows).
+- **Auth:** the access token lives only in Redux memory; on start-up `restoreSession` calls
+  `/auth/refresh` (httpOnly cookie) once. The axios interceptor attaches the token and, on
+  `TOKEN_EXPIRED`, performs one shared ("single-flight") refresh and retries the request; if that
+  fails the session ends and every slice is reset.
+- **Routing:** `ProtectedRoute` waits for session restore, redirects to `/login` (remembering the
+  target page) and enforces manager-only routes. Pages are lazy-loaded (code splitting); the
+  dashboard's chart library is downloaded only when the dashboard opens.
+- **Components:** pages compose shared components; every list renders loading, empty and error
+  states through `DataTable`. Charts use a validated colour-blind-safe palette and offer a table view.
+- **Production:** `npm run build` → Express serves `client/dist` (hashed assets cached for a year,
+  SPA fallback for client routes) – one process, one port; the same build is used in Docker.
+
+## 10. Deployment view
+
+```mermaid
+flowchart LR
+  B[Browser] -- HTTPS --> N[Express :5000<br/>API + built UI]
+  N --> M[(MongoDB replica set)]
+  N --> U[(uploads volume)]
+  C[node-cron in the same process<br/>every 15 min] --> N
+```
+
+For more than one API instance, the scheduler would move to a single worker (or use a
+distributed lock) and uploads to object storage (S3) – see BUSINESS_IMPACT § limitations.
