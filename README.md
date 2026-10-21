@@ -77,6 +77,13 @@ Health endpoint: `GET http://localhost:5000/api/health`.
 | `MAX_UPLOAD_SIZE_MB`        | `5`                                          | Upload size limit                               |
 | `RATE_LIMIT_WINDOW_MINUTES` | `15`                                         | Rate-limit window                               |
 | `RATE_LIMIT_MAX`            | `500`                                        | Max requests per IP per window                  |
+| `LOGIN_RATE_LIMIT_MAX`      | `10`                                         | Failed logins per IP per 15 min                 |
+| `JWT_ACCESS_SECRET`         | – (required, ≥ 32 chars)                     | Signs access tokens                             |
+| `JWT_ACCESS_EXPIRES_IN`     | `15m`                                        | Access-token lifetime                           |
+| `REFRESH_TOKEN_TTL_DAYS`    | `7`                                          | Refresh-token (cookie) lifetime                 |
+| `BCRYPT_SALT_ROUNDS`        | `12`                                         | Password hashing cost                           |
+
+Generate a secret: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
 
 The server validates these at startup and refuses to start with a clear message if one is invalid.
 
@@ -107,9 +114,27 @@ Existing data is kept; a single-node replica set behaves like the standalone ser
 | `npm run lint` / `npm run format`   | ESLint / Prettier over the whole repo        |
 | `npm run build`                     | Production build of the UI (`client/dist`)   |
 | `npm run db:init-replica -w server` | Initialise the local single-node replica set |
+| `npm run seed:users -w server`      | Create / reset the demo users (idempotent)   |
+
+Tests use an in-memory MongoDB replica set (`mongodb-memory-server`) – they never touch your real
+database. If MongoDB is installed locally its `mongod` binary is reused; otherwise one is downloaded
+once (~70 MB). Set `MONGOMS_SYSTEM_BINARY` to point at a specific `mongod`.
+
+## Demo logins
+
+Created by `npm run seed:users -w server`:
+
+| Role     | Name         | Email                | Employee code | Password       |
+| -------- | ------------ | -------------------- | ------------- | -------------- |
+| Manager  | Meera Nair   | `manager@naturax.in` | MGR001        | `Manager@123`  |
+| Employee | Priya Sharma | `priya@naturax.in`   | EMP001        | `Employee@123` |
+| Employee | Rahul Verma  | `rahul@naturax.in`   | EMP002        | `Employee@123` |
+| Employee | Anjali Menon | `anjali@naturax.in`  | EMP003        | `Employee@123` |
+| Employee | Arjun Reddy  | `arjun@naturax.in`   | EMP004        | `Employee@123` |
+| Employee | Sneha Patil  | `sneha@naturax.in`   | EMP005        | `Employee@123` |
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) · [Design decisions](docs/DESIGN_DECISIONS.md) ·
-  [Development log](docs/DEVELOPMENT_LOG.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Database](docs/DATABASE.md) · [API](docs/API.md) ·
+  [Design decisions](docs/DESIGN_DECISIONS.md) · [Development log](docs/DEVELOPMENT_LOG.md)
 - Database, API, rule engine, business impact and interview prep docs are added as their parts are built.

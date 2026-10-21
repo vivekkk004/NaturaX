@@ -15,6 +15,13 @@ const envSchema = z.object({
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().positive().default(15),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(500),
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+
+  // Auth
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 });
 
 function loadEnv() {

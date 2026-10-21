@@ -73,3 +73,33 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
 
 - Fast to build a clean, responsive internal UI without writing and naming lots of custom CSS;
   brand colours are defined once as theme tokens.
+
+## D13. Access token (JWT, 15 min) + rotating refresh token (httpOnly cookie, 7 days)
+
+- **Access token** is stateless: verified by signature only, so normal requests need no DB lookup.
+  It is short-lived, and it is kept in memory (Redux) on the client – never in localStorage, where
+  any XSS could read it.
+- **Refresh token** is a random opaque string in an **httpOnly, SameSite=Strict cookie** limited to
+  `/api/auth`. JavaScript cannot read it (XSS-safe); other sites cannot make the browser send it (CSRF-safe).
+  Only its SHA-256 hash is stored.
+- **Rotation + reuse detection:** each refresh consumes the token (atomic `findOneAndUpdate`) and
+  issues a new one in the same _family_. A rotated token presented again after a 30 s grace window
+  means it was probably stolen, so the whole family is revoked. The grace window avoids logging
+  people out when two browser tabs refresh at the same moment.
+- **Trade-off:** a deactivated user's existing access token stays valid until it expires (≤ 15 min).
+  Accepted for an internal tool; checking the DB on every request would remove that window at a cost.
+- **Rejected:** server sessions (needs a session store), long-lived JWTs (cannot be revoked).
+
+## D14. bcryptjs for password hashing (cost 12)
+
+- Pure JavaScript, so `npm install` never needs a C++ build toolchain (a common failure on Windows).
+  Same algorithm and hash format as native `bcrypt`, somewhat slower – irrelevant at login volumes.
+- Login compares against a dummy hash when the email does not exist, so response time does not
+  reveal which emails are registered, and every failure returns the same message.
+
+## D15. Tests run against an in-memory MongoDB replica set
+
+- `mongodb-memory-server` starts a throwaway **replica set** once per test run; each test file uses
+  its own database name, so files run in parallel without interfering, and transaction code is
+  exercised for real. The developer's database is never touched. A locally installed `mongod` is
+  reused to avoid a 70 MB download.

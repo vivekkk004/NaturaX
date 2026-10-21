@@ -20,3 +20,17 @@ export const apiLimiter = rateLimit({
   skip: () => env.isTest,
   handler: limitExceededHandler,
 });
+
+/**
+ * Strict limit on login attempts per IP to slow down password guessing (brute force).
+ * Successful logins don't count, so a real user who mistypes once is not punished.
+ */
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: env.LOGIN_RATE_LIMIT_MAX,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  skip: () => env.isTest,
+  handler: limitExceededHandler,
+});

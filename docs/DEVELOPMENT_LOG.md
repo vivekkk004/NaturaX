@@ -50,3 +50,29 @@ A running record of what was built in each part and why.
 - Vite proxy to `localhost:5000` could resolve to IPv6 `::1` on Windows → target set to `127.0.0.1:5000`.
 - Duplicate log lines for 4xx responses → the error handler now attaches the reason to the single
   request log line instead of logging separately.
+
+## Part 2 – Auth, users and RBAC
+
+**Built**
+
+- Models: `User` (unique email + employeeCode, hidden `passwordHash`), `RefreshToken` (hashed token,
+  family, TTL index). Shared `toJSON` plugin (`id` instead of `_id`, secrets stripped).
+- `utils/tokens.js` – sign/verify access JWT (HS256 pinned, issuer/audience, unique `jti`),
+  random refresh tokens, SHA-256 hashing.
+- `middleware/auth.js` – `authenticate` (Bearer JWT → `req.user`, distinct `TOKEN_EXPIRED` code)
+  and `authorize(...roles)` (RBAC, 403).
+- `modules/auth` – login (generic error, timing-safe), refresh with rotation and reuse detection,
+  logout, me. Login rate limiter.
+- `modules/users` – manager-only list (pagination, sort whitelist, role/active filters, escaped
+  search), get, create (409 on duplicates), update (deactivation / password reset revokes sessions;
+  a manager cannot lock themselves out).
+- `utils/pagination.js` – shared `listQuerySchema`, `paginate()` → `{ data, pagination }`.
+- `scripts/seedUsers.js` – idempotent demo users (1 manager, 5 employees).
+- Tests: in-memory replica-set setup + helpers; 26 tests passing (auth flows, token rotation and
+  theft detection, RBAC, user CRUD, pagination).
+
+**Issues met and fixed**
+
+- First test run hung: mongodb-memory-server was downloading a 70 MB binary on a slow connection →
+  test setup now reuses the locally installed `mongod`.
+- Two access tokens signed in the same second were identical → added a unique `jti` per token.
