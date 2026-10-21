@@ -22,6 +22,7 @@ import { selectCurrentUser, selectIsManager } from '../../auth/authSlice';
 import { fetchNavCounts } from '../../dashboard/dashboardSlice';
 import { fetchBoardColumn, fetchTaskDetail, moveTask, selectBoard } from '../tasksSlice';
 import { BOARD_COLUMNS, canDrag, canMove } from '../transitions';
+import { COLUMN_SCROLL_HEIGHT } from '../boardLayout';
 import TaskCard from './TaskCard';
 
 const COLUMN_DOT = { OPEN: 'bg-blue-500', IN_PROGRESS: 'bg-amber-500', RESOLVED: 'bg-green-600' };
@@ -54,7 +55,7 @@ function DraggableCard({ task, role, showAssignee, onOpen }) {
       }}
       aria-roledescription={disabled ? 'task' : 'draggable task'}
       aria-label={`${task.orderId}, ${titleOf(task.status)}`}
-      className={`relative list-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+      className={`relative shrink-0 list-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
         disabled ? 'cursor-pointer' : 'cursor-grab touch-manipulation active:cursor-grabbing'
       } ${isDragging ? 'opacity-30' : ''}`}
     >
@@ -108,7 +109,19 @@ function BoardColumn({ column, data, role, activeTask, showAssignee, onOpen, onL
           <Loader size="sm" />
         </div>
       ) : (
-        <ul className="flex min-h-24 flex-col gap-2.5">
+        // Scroll area sized for exactly 3 cards (see boardLayout.js); the rest scrolls inside the
+        // column. dnd-kit auto-scrolls it while a card is dragged near its edge.
+        <ul
+          className="-mr-1.5 flex min-h-24 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin]"
+          style={{ maxHeight: COLUMN_SCROLL_HEIGHT }}
+          onScroll={(event) => {
+            // Load the next page automatically when the user scrolls near the end of the column.
+            const list = event.currentTarget;
+            const nearEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 200;
+            if (nearEnd && data.items.length < data.total && data.status !== 'loading')
+              onLoadMore();
+          }}
+        >
           {data.items.map((task) => (
             <DraggableCard
               key={task.id}

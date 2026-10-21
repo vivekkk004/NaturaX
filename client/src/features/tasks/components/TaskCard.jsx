@@ -2,6 +2,7 @@ import { Clock } from 'lucide-react';
 import { OverdueBadge, PriorityBadge } from '../../../components/common/Badges';
 import { RULE_LABELS } from '../../../utils/constants';
 import { formatCurrency, formatDeadline } from '../../../utils/format';
+import { CARD_HEIGHT } from '../boardLayout';
 
 const ACCENT = {
   HIGH: 'border-l-red-500',
@@ -21,7 +22,10 @@ const initials = (name = '') =>
 export default function TaskCard({ task, showAssignee, overlay = false }) {
   return (
     <div
-      className={`rounded-xl border border-l-4 border-slate-200 ${ACCENT[task.priority] ?? ACCENT.LOW} bg-white p-3 text-left shadow-sm ${
+      // Fixed height (shared with the column) so a column always shows exactly 3 cards;
+      // every line below is truncated or clamped, so content can never overflow it.
+      style={{ height: CARD_HEIGHT }}
+      className={`flex flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 ${ACCENT[task.priority] ?? ACCENT.LOW} bg-white p-3 text-left shadow-sm ${
         overlay ? 'rotate-2 cursor-grabbing shadow-xl ring-2 ring-brand-500/40' : ''
       }`}
     >
@@ -33,12 +37,12 @@ export default function TaskCard({ task, showAssignee, overlay = false }) {
         <PriorityBadge priority={task.priority} />
       </div>
 
-      <p className="mt-2 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+      <p className="mt-2 max-w-full self-start truncate rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
         {RULE_LABELS[task.ruleType] ?? task.ruleType}
       </p>
       <p className="mt-1.5 line-clamp-2 text-xs text-slate-600">{task.reason}</p>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
         <div className="flex min-w-0 items-center gap-1.5 text-xs">
           {task.status === 'RESOLVED' ? (
             <span className="text-slate-500">{formatCurrency(task.orderValue)}</span>
