@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-10-21T07:07:44.749Z",
+  "referenceTimeIst": "2026-10-21 12:37",
+  "note": "Upload with \"Evaluate as of\" = referenceTimeIst to reproduce the expected counts exactly.",
+  "expected": {
+    "rows": 121,
+    "ordersStored": 116,
+    "needsCorrection": 14,
+    "rejectedRows": 3,
+    "duplicatesSkipped": 2,
+    "tasks": {
+      "UNCONFIRMED_ORDER": 8,
+      "DISPATCH_DELAY": 10,
+      "SHIPMENT_DELAY": 14,
+      "FAILED_DELIVERY": 10,
+      "HIGH_VALUE_DELAY": 8,
+      "DATA_CORRECTION": 14
+    },
+    "unassignedTasks": 2
+  }
+}

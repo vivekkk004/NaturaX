@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:init-replica": "node scripts/initReplicaSet.js",
-    "seed:users": "node --env-file-if-exists=.env scripts/seedUsers.js"
+    "seed:users": "node --env-file-if-exists=.env scripts/seedUsers.js",
+    "seed": "node --env-file-if-exists=.env scripts/seed.js",
+    "generate:sample": "node --env-file-if-exists=.env scripts/generateSampleData.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

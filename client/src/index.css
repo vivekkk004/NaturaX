@@ -7,8 +7,39 @@
   --color-brand-500: #4caf5c;
   --color-brand-600: #3a9149;
   --color-brand-700: #2f733b;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+/* Shared base for buttons. Tailwind v4 only lets @apply reuse classes declared with @utility. */
+@utility btn {
+  @apply inline-flex h-9.5 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* A few shared component classes keep markup readable across pages. */
+@layer components {
+  .input {
+    @apply h-9.5 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-secondary {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-ghost {
+    @apply btn px-3 text-slate-600 hover:bg-slate-100;
+  }
 }

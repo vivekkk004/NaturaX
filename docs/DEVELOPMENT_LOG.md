@@ -181,3 +181,29 @@ RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
 - A cleanup test counted files in the shared test upload folder; with more test files uploading
   in parallel it became flaky. It now checks for a unique marker in the uploaded content instead
   (3 consecutive green runs).
+
+## Parts 7–8 – Frontend (foundation + features)
+
+- Redux Toolkit store with one slice per domain (auth, dashboard, tasks, orders, imports, reports,
+  audit, rules, employees), `createAsyncThunk` for every API call, stale-response guard via
+  `requestId`, memoised query selectors, full store reset on logout/session expiry.
+- Service layer (`services/*.js`) over one axios instance; interceptors attach the in-memory access
+  token and do a single-flight silent refresh on `TOKEN_EXPIRED`.
+- Protected + role-based routes, lazy-loaded pages (code splitting), responsive layout with a mobile drawer.
+- Reusable components: DataTable, Pagination, FilterBar (debounced search), StatusBadge, PriorityBadge,
+  Modal (accessible), StatCard, Loader, ErrorBoundary, Empty/Error states.
+- Pages: Login, Dashboard (stat cards with drill-down, validated colour-blind-safe charts with a table
+  view), Tasks (filters, sort, task modal with status changes, reassignment and audit history),
+  Orders (data-correction bucket, raw file values), Import (client-side checks, row-by-row report,
+  history), Daily report (sections + CSV downloads), Audit trail, Rule settings (edit + run now), Employees.
+- 15 client unit tests (auth/session reset, stale responses, formatting, audit descriptions).
+
+## Part 9 – Seed data and sample files (in progress)
+
+- `scripts/generateSampleData.js` – deterministic 121-row CSV + XLSX with every planted case and an
+  expected-results file; an integration test verifies the counts for CSV and XLSX and at different
+  times of day (it caught a date-boundary bug in the generator, now fixed).
+- `scripts/seed.js` – resets demo data, imports yesterday's sheet, simulates the team's work through
+  the real services (audited), reassigns an overdue task, runs a catch-up evaluation, writes today's sample.
+- Not yet done: browser walkthrough of the UI, docker-compose, Part 10 docs (BUSINESS_IMPACT,
+  INTERVIEW_PREP, final README/API/ARCHITECTURE updates for the frontend).
