@@ -11,6 +11,7 @@ export default defineConfig({
       LOG_LEVEL: 'silent',
       JWT_ACCESS_SECRET: 'test-secret-that-is-at-least-32-characters-long',
       BCRYPT_SALT_ROUNDS: '4', // fast hashing keeps the suite quick; production uses 12
+      UPLOAD_DIR: 'tests/.uploads', // never mix test files with real uploads; deleted after the run
     },
     // One throwaway in-memory MongoDB replica set for the whole run (supports transactions).
     globalSetup: ['tests/setup/globalSetup.js'],

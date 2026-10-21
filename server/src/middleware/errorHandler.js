@@ -41,6 +41,15 @@ function normalizeError(err) {
     });
   }
 
+  // Errors raised by Express itself (e.g. res.download of a missing file -> 404) carry a 4xx status.
+  if (err.expose && err.status >= 400 && err.status < 500) {
+    const notFound = err.status === 404;
+    return new AppError(notFound ? 'File not found' : err.message, {
+      statusCode: err.status,
+      code: notFound ? 'NOT_FOUND' : 'BAD_REQUEST',
+    });
+  }
+
   return null; // unknown -> programming error / infrastructure failure
 }
 

@@ -103,3 +103,52 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
   its own database name, so files run in parallel without interfering, and transaction code is
   exercised for real. The developer's database is never touched. A locally installed `mongod` is
   reused to avoid a 70 MB download.
+
+## D16. Dates: stored as UTC, read as IST, own small parser (no date library)
+
+- India has one timezone and no daylight saving, so IST is a fixed +05:30 offset – plain arithmetic
+  is exact. A ~100-line parser handles every format we accept (DD-MM-YYYY, DD/MM/YYYY, 20-Oct-2026,
+  ISO with/without offset, 12h/24h time, Excel date cells and serial numbers) and rejects impossible
+  dates (31-02) that `new Date()` would silently roll over to 3 March.
+- Day-first only: `03/04/2026` is 3 April. Supporting US month-first too would make such dates ambiguous.
+- A date-only Expected Delivery Date means "by the end of that day", so it is stored as 23:59:59.999 IST.
+- **Rejected:** `new Date(string)` (locale-dependent, accepts invalid dates), moment/luxon (heavy for this need).
+
+## D17. Import semantics: what counts as an error, and what a re-upload does
+
+- **Errors** (row → _needs correction_, never flagged by rules): a missing mandatory field, an
+  unparseable/impossible/future date, wrong date order, an unknown status/payment type, a bad amount
+  or phone number, a missing date that the status requires (DISPATCHED needs dispatch and expected
+  delivery dates), or a dispatch date on an order that is "Confirmed" (contradictory – we can't tell which is true).
+- **Rejected** (not stored): no Order ID, or the same Order ID twice in one file with _different_
+  data – all copies are rejected because we cannot know which is correct. An _identical_ repeat
+  is harmless: the first copy is kept.
+- **Warnings** (imported anyway): unknown, ambiguous or inactive employee – the order is valid, the
+  follow-up task just goes to an unassigned queue for the manager.
+- An Order ID that already exists in the DB is an **update**, not a duplicate – daily files repeat
+  orders with new statuses. A normalised-content hash makes identical re-uploads write nothing.
+- **Bad data never overwrites good data:** an invalid row for an order already stored as VALID is
+  reported but not applied.
+- A missing required **column** fails the whole file (format error) – but the attempt is still
+  recorded as a FAILED import batch for traceability.
+
+## D18. Uploaded files: generated names, content sniffing, path stored in DB
+
+- multer writes to `server/uploads/` under `<timestamp>-<random>.<ext>`; the user's filename is never
+  used as a path (no path traversal, no collisions). The DB stores the relative path.
+- The extension is checked on upload, then the **content** is checked: `.xlsx` must be a ZIP,
+  `.csv` must not be binary. A renamed executable is rejected.
+- A file whose request fails before an import record exists is deleted; once an import record
+  exists, the file is kept because the record points to it.
+
+## D19. Validation is a pure function
+
+- `validateRow(row, { now, resolveEmployee })` and `validateRows` take plain data and return plain
+  results – no database, no clock. Every rule has a unit test with a fixed `now`, and the import
+  service just orchestrates: parse → map → validate → persist.
+
+## D20. Override instead of downgrade for a vulnerable transitive dependency
+
+- ExcelJS depends on an old `uuid` with a moderate advisory. `npm audit fix --force` would have
+  _downgraded_ ExcelJS by a major version. Instead, an npm `overrides` entry pins `uuid@^11.1.1`;
+  ExcelJS was re-tested and `npm audit` reports 0 vulnerabilities.

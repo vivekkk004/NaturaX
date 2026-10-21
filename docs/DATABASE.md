@@ -43,3 +43,56 @@ the final guarantee against duplicates – application checks can race, a unique
 | `{ expiresAt: 1 }` TTL (`expireAfterSeconds: 0`) | MongoDB deletes expired tokens automatically                 |
 | `{ user: 1 }`                                    | revoke all sessions of a user (deactivation, password reset) |
 | `{ family: 1 }`                                  | revoke a whole family on token reuse                         |
+
+## orders
+
+One document per real-world order, keyed by the business `orderId`.
+
+| Field                                 | Type     | Notes                                                                                           |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `orderId`                             | String   | **unique**, uppercase (`ord-1` and `ORD-1` are the same order)                                  |
+| `orderDate`                           | Date     | UTC instant (input read as IST)                                                                 |
+| `customerName`                        | String   |                                                                                                 |
+| `phone`                               | String   | normalised to 10 digits (`+91 98765 43210` → `9876543210`)                                      |
+| `orderValue`                          | Number   | rupees (`₹7,499` → `7499`)                                                                      |
+| `paymentType`                         | String   | `PREPAID` \| `COD`                                                                              |
+| `status`                              | String   | `UNCONFIRMED` \| `CONFIRMED` \| `DISPATCHED` \| `DELIVERED` \| `DELIVERY_FAILED` \| `CANCELLED` |
+| `rawStatus`                           | String   | as written in the file ("In Transit")                                                           |
+| `dispatchDate`                        | Date     |                                                                                                 |
+| `expectedDeliveryDate`                | Date     | date-only input stored as **end of that IST day** (23:59:59.999)                                |
+| `assignedEmployeeRaw`                 | String   | as written in the file                                                                          |
+| `assignedTo`                          | ObjectId | → users; `null` when the employee could not be matched                                          |
+| `dataStatus`                          | String   | `VALID` \| `NEEDS_CORRECTION` – only VALID orders are evaluated by rules                        |
+| `dataIssues`                          | Array    | `{ field, code, message, severity }` errors and warnings from the last import                   |
+| `raw`                                 | Object   | original cell values – kept only while the order needs correction                               |
+| `sourceHash`                          | String   | SHA-256 of the normalised content → detects unchanged re-uploads                                |
+| `firstImportBatch`, `lastImportBatch` | ObjectId | → importbatches (traceability)                                                                  |
+
+| Index                              | Why                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------- |
+| `{ orderId: 1 }` unique            | idempotent upsert key; concurrent uploads can never create two copies      |
+| `{ dataStatus: 1, status: 1 }`     | "needs correction" bucket and status filters; rule engine's candidate scan |
+| `{ assignedTo: 1, orderDate: -1 }` | an employee's own orders, newest first                                     |
+| `{ orderDate: -1 }`                | date-range filters and default sort                                        |
+
+## importbatches
+
+One document per uploaded file – the persisted row-by-row error report.
+
+| Field                  | Type           | Notes                                                                                                               |
+| ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `originalName`         | String         | the user's file name (display/download only – never used as a path)                                                 |
+| `filePath`             | String         | **relative path of the stored file**, e.g. `uploads/1792…-a1b2c3.csv`; the file itself is on disk                   |
+| `fileType`, `fileSize` | String, Number | `csv` \| `xlsx`, bytes                                                                                              |
+| `uploadedBy`           | ObjectId       | → users                                                                                                             |
+| `status`               | String         | `PROCESSING` → `COMPLETED` \| `FAILED`                                                                              |
+| `failureReason`        | String         | why a whole file was rejected (missing columns, wrong content…)                                                     |
+| `asOf`                 | Date           | the "current time" used to evaluate this file                                                                       |
+| `summary`              | Object         | `totalRows, created, updated, unchanged, needsCorrection, rejected, duplicatesSkipped, keptPreviousValid, warnings` |
+| `rowIssues`            | Array          | `{ row, orderId, field, code, message, severity, outcome }` (max 5 000 stored)                                      |
+| `rowIssuesTruncated`   | Boolean        | true if more issues existed than were stored                                                                        |
+
+| Index                              | Why                          |
+| ---------------------------------- | ---------------------------- |
+| `{ createdAt: -1 }`                | import history, newest first |
+| `{ uploadedBy: 1, createdAt: -1 }` | "my uploads"                 |

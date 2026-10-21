@@ -137,3 +137,111 @@ Password: 8–72 chars, at least one letter and one number. `201 { "data": user 
 
 Any of `name`, `role`, `isActive`, `password`. Deactivating a user or resetting their password
 revokes all their sessions. A manager cannot deactivate or change the role of their own account (`400`).
+
+---
+
+## Imports – **Manager only**
+
+### `POST /imports` – upload an order file
+
+`multipart/form-data`:
+
+| Field  | Required | Notes                                                                                    |
+| ------ | -------- | ---------------------------------------------------------------------------------------- |
+| `file` | yes      | `.csv` or `.xlsx`, ≤ 5 MB (configurable), ≤ 10 000 data rows                             |
+| `asOf` | no       | "current time" for evaluation, e.g. `2026-10-20T18:00` (IST) – deterministic demos/tests |
+
+```bash
+curl -X POST http://localhost:5000/api/imports \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@sample-data/orders_with_errors_demo.csv"
+```
+
+`201` – the import report:
+
+```json
+{
+  "data": {
+    "id": "6716…",
+    "originalName": "orders_with_errors_demo.csv",
+    "filePath": "uploads/1792561423105-787a65f12b7c.csv",
+    "fileType": "csv",
+    "status": "COMPLETED",
+    "summary": {
+      "totalRows": 20,
+      "created": 16,
+      "updated": 0,
+      "unchanged": 0,
+      "needsCorrection": 10,
+      "rejected": 3,
+      "duplicatesSkipped": 1,
+      "keptPreviousValid": 0,
+      "warnings": 1
+    },
+    "rowIssues": [
+      {
+        "row": 6,
+        "orderId": "DEMO-1005",
+        "field": "Order Date",
+        "code": "INVALID_DATE",
+        "message": "Order Date \"31-02-2026 10:00\" is not a valid date (expected DD-MM-YYYY HH:mm or YYYY-MM-DD HH:mm)",
+        "severity": "ERROR",
+        "outcome": "NEEDS_CORRECTION"
+      }
+    ],
+    "uploadedBy": "6716…"
+  }
+}
+```
+
+Row `outcome`: `IMPORTED` · `NEEDS_CORRECTION` (stored, not evaluated by rules) · `REJECTED`
+(no Order ID / conflicting duplicate – not stored) · `SKIPPED_DUPLICATE` (identical repeat).
+
+Issue `code`s: `MISSING_FIELD, INVALID_ORDER_ID, INVALID_DATE, FUTURE_DATE, DATE_SEQUENCE,
+INVALID_STATUS, STATUS_DATE_CONFLICT, INVALID_PAYMENT_TYPE, INVALID_AMOUNT, INVALID_PHONE,
+INVALID_TEXT, DUPLICATE_IN_FILE` (errors) and `DUPLICATE_ROW, UNKNOWN_EMPLOYEE, AMBIGUOUS_EMPLOYEE,
+INACTIVE_EMPLOYEE, KEPT_PREVIOUS_VALID_DATA` (warnings).
+
+File-level failures (whole file rejected, batch saved as `FAILED`, `details.importBatchId` returned):
+
+| Status | When                                                                                                                                                                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | wrong extension (`.txt`, `.xls`), content doesn't match extension, empty file, no data rows, > 10 000 rows, missing/duplicate required columns (`details.missingColumns`), no file, invalid `asOf` |
+| 413    | file larger than `MAX_UPLOAD_SIZE_MB`                                                                                                                                                              |
+
+### `GET /imports`
+
+Import history (without `rowIssues`). Query: `page`, `limit`, `sort` (`createdAt`, `originalName`;
+default `-createdAt`), `status` (`PROCESSING`|`COMPLETED`|`FAILED`).
+
+### `GET /imports/:id`
+
+Full report including `rowIssues`.
+
+### `GET /imports/:id/file`
+
+Downloads the originally uploaded file (with its original name).
+
+---
+
+## Orders – Manager (all orders) / Employee (only orders assigned to them)
+
+### `GET /orders`
+
+| Query                | Notes                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `dataStatus`         | `VALID` \| `NEEDS_CORRECTION` (the data-correction bucket)                                       |
+| `status`             | canonical order status                                                                           |
+| `paymentType`        | `PREPAID` \| `COD`                                                                               |
+| `assignedTo`         | user id, or `unassigned` (manager only – ignored for employees)                                  |
+| `dateFrom`, `dateTo` | order-date range, inclusive whole IST days, e.g. `2026-10-01`                                    |
+| `search`             | order ID, customer name or phone (partial, case-insensitive)                                     |
+| `sort`               | `orderDate`, `orderValue`, `orderId`, `expectedDeliveryDate`, `updatedAt` (default `-orderDate`) |
+
+```
+GET /api/orders?dataStatus=NEEDS_CORRECTION&sort=orderId&limit=10
+```
+
+### `GET /orders/:id`
+
+`404` for an unknown order – and also for an employee asking for someone else's order (existence is not revealed).

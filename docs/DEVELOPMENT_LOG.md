@@ -76,3 +76,35 @@ A running record of what was built in each part and why.
 - First test run hung: mongodb-memory-server was downloading a 70 MB binary on a slow connection →
   test setup now reuses the locally installed `mongod`.
 - Two access tokens signed in the same second were identical → added a unique `jti` per token.
+
+## Part 3 – Orders, file import and validation
+
+**Built**
+
+- `constants/order.js` – canonical statuses + synonym tables ("Shipped", "In Transit", "NDR" …),
+  payment types, data status, dates required per status.
+- `utils/dates.js` – IST-aware parser for every accepted date format, day boundaries, formatting.
+- `import/columns.js` (header aliases → canonical fields), `import/normalizers.js` (phone, amount,
+  status, payment, text), `import/parsers.js` (CSV via csv-parse, XLSX via ExcelJS, content
+  sniffing, row limits), `import/rowValidator.js` (pure row + in-file duplicate validation).
+- Models `Order` (unique `orderId`, `dataStatus`, `dataIssues`, `raw`, `sourceHash`) and
+  `ImportBatch` (file path, status, summary, row-by-row issues).
+- `middleware/upload.js` – multer disk storage in `server/uploads/`, generated filenames, extension
+  and size checks, cleanup of orphaned files.
+- `modules/imports` – upload (pipeline inside a transaction when available), history, report,
+  download of the original file. `modules/orders` – filtered/paginated list, detail, employee scoping.
+- `sample-data/orders_with_errors_demo.csv` – one row per validation case, with expected outcomes.
+- Tests: 65 passing (dates, normalisation, row validation, duplicates, CSV/XLSX parsing, upload
+  end-to-end, re-upload idempotency, RBAC and scoping).
+
+**Issues met and fixed**
+
+- `npm audit`: moderate advisory in ExcelJS's `uuid` → npm override to `uuid@11.1.1` (see D20).
+- Live smoke test showed the last row reported as row 8 instead of 7: the file mixed LF and CRLF
+  line endings and the parser counted the stray CR as a line. Fixed by declaring all three record
+  delimiters; added a regression test.
+- `res.download` refused the test upload folder (a dot-folder) and the error surfaced as 500 → the
+  error handler now maps Express's own 4xx errors correctly.
+- `withTransaction` can retry its callback, so the persistence step was made side-effect free on
+  the in-memory results (it returns what it found instead of mutating).
+- While updating docs, a PowerShell 5.1 find-and-replace read two UTF-8 Markdown files as ANSI and`n  corrupted their special characters (mojibake). Both files were restored from git and re-edited`n with an encoding-safe tool; a repo-wide search confirmed no other file was affected.

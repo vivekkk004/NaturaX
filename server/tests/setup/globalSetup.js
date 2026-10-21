@@ -46,4 +46,5 @@ export async function setup(project) {
 
 export async function teardown() {
   await replSet?.stop();
+  fs.rmSync(path.resolve(import.meta.dirname, '..', '.uploads'), { recursive: true, force: true });
 }

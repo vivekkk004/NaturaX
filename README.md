@@ -7,7 +7,7 @@ records every change in an append-only audit trail. Built as the technical asses
 "D2C Order Follow-up Automation System" for Vitanatura Elements Pvt Ltd (NaturaX).
 
 > **Build status:** being built in parts – see [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md).
-> Part 1 (project setup) is complete.
+> Parts 1–3 are complete: project setup, auth/users/RBAC, order import with validation.
 
 ## Features (target scope)
 
@@ -137,4 +137,5 @@ Created by `npm run seed:users -w server`:
 
 - [Architecture](docs/ARCHITECTURE.md) · [Database](docs/DATABASE.md) · [API](docs/API.md) ·
   [Design decisions](docs/DESIGN_DECISIONS.md) · [Development log](docs/DEVELOPMENT_LOG.md)
-- Database, API, rule engine, business impact and interview prep docs are added as their parts are built.
+- [Sample data](sample-data/README.md) – files to upload, with the expected result of every row.
+- Rule engine, business impact and interview prep docs are added as their parts are built.

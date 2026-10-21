@@ -67,11 +67,17 @@ server/
 │  ├─ routes.js         mounts every module under /api
 │  ├─ config/           env.js (zod-validated env), db.js (connect + withTransaction),
 │  │                    logger.js (pino), paths.js (upload folder)
+│  ├─ constants/        roles, order statuses + synonyms, import issue codes
 │  ├─ errors/           AppError hierarchy
-│  ├─ middleware/       validate, notFound, errorHandler, rateLimiter (+ auth, upload later)
-│  └─ modules/          one folder per feature: health/ (auth, users, imports, orders,
-│                       tasks, rules, dashboard, reports, audit added in later parts)
-├─ scripts/             initReplicaSet.js (+ seed, sample-data generator later)
+│  ├─ import/           columns (header aliases), normalizers, parsers (CSV/XLSX),
+│  │                    rowValidator (pure)
+│  ├─ middleware/       auth (authenticate/authorize), validate, upload, rateLimiter,
+│  │                    notFound, errorHandler
+│  ├─ models/           User, RefreshToken, Order, ImportBatch (+ plugins/toJSON)
+│  ├─ modules/          health, auth, users, imports, orders (tasks, rules, dashboard,
+│  │                    reports, audit added in later parts)
+│  └─ utils/            dates (IST), pagination, tokens, validation
+├─ scripts/             initReplicaSet.js, seedUsers.js (+ full seed, sample generator later)
 ├─ tests/               unit/ and integration/
 └─ uploads/             uploaded files (git-ignored)
 
@@ -90,10 +96,24 @@ client/
 commit or none) or – on a standalone server – runs `work(null)`, where each write is still atomic
 for its own document. Callers always pass `{ session }` to Mongoose, which accepts `null`.
 
-## 6. Planned components (later parts)
+## 6. Import pipeline (Part 3)
 
-- **Import pipeline:** parse → normalize → validate rows → upsert orders → rule engine →
-  idempotent task sync → import report (Part 3–4).
+```mermaid
+flowchart TD
+  U[POST /api/imports<br/>multipart file] --> M[multer: .csv/.xlsx, max 5 MB<br/>saved to server/uploads/ with a generated name]
+  M --> B[ImportBatch created: PROCESSING<br/>stores only the file path]
+  B --> P[parseFile: content sniffing<br/>CSV csv-parse / XLSX ExcelJS -> rows with row numbers]
+  P --> H[mapHeaders: aliases -> canonical fields<br/>missing column -> whole file FAILED]
+  H --> V[validateRows - pure, now injected<br/>normalise, validate, in-file duplicates]
+  V --> O[persistOrders: upsert by orderId<br/>same hash -> skip, invalid never overwrites valid]
+  O --> R[ImportBatch COMPLETED<br/>summary + row-by-row issues]
+  R -.Part 4.-> E[rule engine -> idempotent tasks]
+```
+
+Orders and the batch summary are written in one `withTransaction` block.
+
+## 7. Planned components (later parts)
+
 - **Rule engine:** one class per rule (`applies`, `buildException`), thresholds in the
   `ruleconfigs` collection, injectable `now` (Part 4).
 - **Tasks + audit:** reassignment/status changes with append-only audit log (Part 5).
