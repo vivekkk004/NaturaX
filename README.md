@@ -129,24 +129,26 @@ blocks such third-party cookies, so users there must log in again after a reload
 
 ## Environment variables (`server/.env`)
 
-| Variable                                       | Default                      | Purpose                                             |
-| ---------------------------------------------- | ---------------------------- | --------------------------------------------------- |
-| `NODE_ENV`                                     | `development`                | `development` / `test` / `production`               |
-| `PORT`                                         | `5000`                       | API port                                            |
-| `MONGODB_URI`                                  | –                            | MongoDB connection string (**required**)            |
-| `CLIENT_ORIGIN`                                | `http://localhost:5173`      | Allowed CORS origin(s), comma-separated             |
-| `LOG_LEVEL`                                    | `info`                       | pino log level                                      |
-| `UPLOAD_DIR`                                   | `uploads`                    | Folder for uploaded files (DB stores only the path) |
-| `MAX_UPLOAD_SIZE_MB`                           | `5`                          | Upload size limit                                   |
-| `RATE_LIMIT_WINDOW_MINUTES` / `RATE_LIMIT_MAX` | `15` / `500`                 | API rate limit per IP                               |
-| `LOGIN_RATE_LIMIT_MAX`                         | `10`                         | Failed logins per IP per 15 min                     |
-| `JWT_ACCESS_SECRET`                            | – (**required**, ≥ 32 chars) | Signs access tokens                                 |
-| `JWT_ACCESS_EXPIRES_IN`                        | `15m`                        | Access-token lifetime                               |
-| `REFRESH_TOKEN_TTL_DAYS`                       | `7`                          | Refresh-cookie lifetime                             |
-| `BCRYPT_SALT_ROUNDS`                           | `12`                         | Password hashing cost                               |
-| `SERVE_CLIENT`                                 | `true` in production         | Serve `client/dist` from Express                    |
-| `RULE_ENGINE_CRON`                             | `*/15 * * * *`               | Scheduled rule evaluation (cron, Asia/Kolkata)      |
-| `RULE_ENGINE_CRON_ENABLED`                     | `true`                       | Turn the scheduler on/off                           |
+| Variable                                       | Default                      | Purpose                                                      |
+| ---------------------------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| `NODE_ENV`                                     | `development`                | `development` / `test` / `production`                        |
+| `PORT`                                         | `5000`                       | API port                                                     |
+| `MONGODB_URI`                                  | –                            | MongoDB connection string (**required**)                     |
+| `CLIENT_ORIGIN`                                | `http://localhost:5173`      | Allowed CORS origin(s), comma-separated                      |
+| `LOG_LEVEL`                                    | `info`                       | pino log level                                               |
+| `UPLOAD_DIR`                                   | `uploads`                    | Folder for uploaded files (DB stores only the path)          |
+| `MAX_UPLOAD_SIZE_MB`                           | `5`                          | Upload size limit                                            |
+| `RATE_LIMIT_WINDOW_MINUTES` / `RATE_LIMIT_MAX` | `15` / `500`                 | API rate limit per IP                                        |
+| `LOGIN_RATE_LIMIT_MAX`                         | `10`                         | Failed logins per IP per 15 min                              |
+| `JWT_ACCESS_SECRET`                            | – (**required**, ≥ 32 chars) | Signs access tokens                                          |
+| `JWT_ACCESS_EXPIRES_IN`                        | `15m`                        | Access-token lifetime                                        |
+| `REFRESH_TOKEN_TTL_DAYS`                       | `7`                          | Refresh-cookie lifetime                                      |
+| `BCRYPT_SALT_ROUNDS`                           | `12`                         | Password hashing cost                                        |
+| `SERVE_CLIENT`                                 | `true` in production         | Serve `client/dist` from Express                             |
+| `COOKIE_SAME_SITE`                             | `strict`                     | Refresh-cookie mode; `none` only for direct cross-site calls |
+| `TRUST_PROXY`                                  | `1` in production, else `0`  | Reverse proxies in front of the app (real client IP)         |
+| `RULE_ENGINE_CRON`                             | `*/15 * * * *`               | Scheduled rule evaluation (cron, Asia/Kolkata)               |
+| `RULE_ENGINE_CRON_ENABLED`                     | `true`                       | Turn the scheduler on/off                                    |
 
 The server validates these at startup and refuses to start, naming the problem, if one is invalid.
 
