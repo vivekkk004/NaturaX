@@ -43,10 +43,13 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
+  // Behind a hosting proxy (Render, Vercel rewrite...) the client IP is in X-Forwarded-For;
+  // without this, rate limiting would treat every user as the proxy's single IP.
+  if (env.trustProxy) app.set('trust proxy', env.trustProxy);
   app.use(helmet());
   app.use(
     cors({
-      origin: env.CLIENT_ORIGIN.split(',').map((o) => o.trim()),
+      origin: env.CLIENT_ORIGIN, // already split and normalised in config/env.js
       credentials: true, // the refresh-token cookie must travel with requests
       exposedHeaders: ['Content-Disposition', 'X-Request-Id'], // lets the UI read CSV filenames
     }),

@@ -10,7 +10,19 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
-  CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
+  // Comma-separated. Trailing slashes are ignored ("https://app.vercel.app/" works too).
+  CLIENT_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((o) => o.trim().replace(/\/+$/, ''))
+        .filter(Boolean),
+    ),
+  // Number of reverse proxies in front of the app (Render/Heroku/nginx = 1). Needed so req.ip and
+  // the rate limiter see the real client IP. Defaults to 1 in production, 0 otherwise.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   UPLOAD_DIR: z.string().default('uploads'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
@@ -23,6 +35,10 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+  // Refresh-cookie SameSite mode. "strict" when UI and API share a site (Vite proxy, Vercel rewrite,
+  // Express serving the UI). Use "none" only if the UI calls the API on another site directly;
+  // the cookie is then always Secure (HTTPS) and some browsers (Safari) may still block it.
+  COOKIE_SAME_SITE: z.enum(['strict', 'lax', 'none']).default('strict'),
 
   // Serve the built React app (client/dist) from Express: one process, one port.
   // Defaults to on in production; development uses the Vite dev server instead.
@@ -54,6 +70,7 @@ function loadEnv() {
     serveClient: result.data.SERVE_CLIENT
       ? result.data.SERVE_CLIENT === 'true'
       : result.data.NODE_ENV === 'production',
+    trustProxy: result.data.TRUST_PROXY ?? (result.data.NODE_ENV === 'production' ? 1 : 0),
   });
 }
 

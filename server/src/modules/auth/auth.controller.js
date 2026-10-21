@@ -7,11 +7,13 @@ export const REFRESH_COOKIE = 'refreshToken';
  * The refresh token lives in an httpOnly cookie: JavaScript in the page cannot read it,
  * so an XSS bug cannot steal it. `path` limits it to the auth endpoints, and
  * SameSite=strict stops other sites from making the browser send it (CSRF).
+ * COOKIE_SAME_SITE=none is only for a UI calling the API on another site directly; browsers
+ * accept SameSite=None only together with Secure.
  */
 const cookieOptions = () => ({
   httpOnly: true,
-  secure: env.isProduction,
-  sameSite: 'strict',
+  secure: env.isProduction || env.COOKIE_SAME_SITE === 'none',
+  sameSite: env.COOKIE_SAME_SITE,
   path: '/api/auth',
   maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
 });

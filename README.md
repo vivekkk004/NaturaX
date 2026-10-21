@@ -97,6 +97,36 @@ The Dockerfile is multi-stage (non-root runtime user); compose runs MongoDB as a
 set so transactions are enabled. _The Docker files were written but not executed on the development
 machine (Docker is not installed there); the production build they use was verified locally._
 
+## Deploying: UI on Vercel, API on Render, database on Atlas
+
+The UI and API live on different sites, which normally means CORS and cross-site cookies. To avoid
+both, **Vercel forwards `/api/*` to Render** (`client/vercel.json`), so the browser only ever talks
+to the Vercel domain: no CORS, and the refresh cookie stays first-party (`SameSite=Strict`).
+
+**Vercel** (project Root Directory = `client`, framework Vite):
+
+- Do **not** set `VITE_API_BASE_URL` (or set it to `/api`) – requests go to `/api` on the Vercel
+  domain and are rewritten to Render.
+- `client/vercel.json` also sends every other path to `index.html`, so reloading `/tasks` works.
+- If the API URL changes, update the `destination` in `client/vercel.json`.
+
+**Render** (Web Service, Root Directory = `server`, build `npm install`, start `node src/server.js`):
+
+| Variable            | Value                                                                  |
+| ------------------- | ---------------------------------------------------------------------- |
+| `NODE_ENV`          | `production`                                                           |
+| `MONGODB_URI`       | `mongodb+srv://USER:PASSWORD@cluster…mongodb.net/naturax_followup`     |
+| `JWT_ACCESS_SECRET` | long random string                                                     |
+| `CLIENT_ORIGIN`     | `https://natura-x.vercel.app` (needed only for direct calls; harmless) |
+| `SERVE_CLIENT`      | `false` (the UI is on Vercel)                                          |
+
+**Atlas → Network Access:** allow `0.0.0.0/0` (Render's IPs change); the database user and password
+still protect the cluster.
+
+_Alternative without the rewrite:_ set `VITE_API_BASE_URL=https://<api>.onrender.com/api` on Vercel,
+`CLIENT_ORIGIN=https://<ui>.vercel.app` and `COOKIE_SAME_SITE=none` on Render. Works in Chrome; Safari
+blocks such third-party cookies, so users there must log in again after a reload.
+
 ## Environment variables (`server/.env`)
 
 | Variable                                       | Default                      | Purpose                                             |
