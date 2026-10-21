@@ -21,6 +21,22 @@ export const fetchDashboard = createAsyncThunk(
   },
 );
 
+/**
+ * Live counts for the sidebar badges (open / overdue tasks). Unfiltered, so they always show the
+ * whole picture; the API already limits employees to their own tasks.
+ */
+export const fetchNavCounts = createAsyncThunk(
+  'dashboard/fetchNavCounts',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { totals } = await dashboardService.get({});
+      return { unresolvedTasks: totals.unresolvedTasks, overdueTasks: totals.overdueTasks };
+    } catch (error) {
+      return rejectWithValue(toApiError(error));
+    }
+  },
+);
+
 const dashboardSlice = createSlice({
   name: 'dashboard',
   initialState: {
@@ -29,6 +45,7 @@ const dashboardSlice = createSlice({
     status: 'idle',
     error: null,
     currentRequestId: null,
+    navCounts: null, // { unresolvedTasks, overdueTasks } - null until first loaded
   },
   reducers: {
     setDashboardFilters(state, { payload }) {
@@ -54,7 +71,11 @@ const dashboardSlice = createSlice({
         if (meta.requestId !== state.currentRequestId) return;
         state.status = 'failed';
         state.error = payload?.message ?? 'Could not load the dashboard';
+      })
+      .addCase(fetchNavCounts.fulfilled, (state, { payload }) => {
+        state.navCounts = payload;
       });
+    // A failed badge refresh keeps the last known counts - the sidebar never shows an error.
   },
 });
 
@@ -63,3 +84,4 @@ export default dashboardSlice.reducer;
 
 export const selectDashboard = (state) => state.dashboard;
 export const selectDashboardFilters = (state) => state.dashboard.filters;
+export const selectNavCounts = (state) => state.dashboard.navCounts;
