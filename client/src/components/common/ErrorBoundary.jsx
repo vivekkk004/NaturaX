@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { isChunkLoadError } from '../../utils/newVersion';
 
 /**
  * Catches rendering errors so one broken widget shows a message instead of a blank page.
@@ -21,6 +22,26 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children;
+    if (isChunkLoadError(this.state.error)) {
+      return (
+        <div
+          role="alert"
+          className="mx-auto my-16 max-w-lg rounded-xl border border-brand-100 bg-white p-6 text-center shadow-sm"
+        >
+          <h2 className="text-lg font-semibold text-slate-800">A new version is available</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            The app was updated while this page was open. Reload to continue.
+          </p>
+          <button
+            type="button"
+            className="btn-primary mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
     return (
       <div
         role="alert"

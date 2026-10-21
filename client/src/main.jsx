@@ -6,7 +6,14 @@ import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import App from './App';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { reloadForNewVersion } from './utils/newVersion';
 import './index.css';
+
+// Vite fires this when a lazy-loaded page file can't be fetched - typically because a new version
+// was deployed while this tab was open. Load the new version once instead of showing an error.
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadForNewVersion()) event.preventDefault();
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
