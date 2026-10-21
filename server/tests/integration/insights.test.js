@@ -66,7 +66,7 @@ describe('GET /api/dashboard', () => {
       ['Anjali Menon', 0], // idle employees are shown too
     ]);
     expect(res.body.data.highPriorityCases).toHaveLength(3);
-    expect(res.body.data.highPriorityCases[0]).toMatchObject({ isOverdue: true });
+    expect(res.body.data.highPriorityCases[0]).toMatchObject({ isOverdue: true, priority: 'HIGH' });
     expect(res.body.data.lastImport.originalName).toBe('orders.csv');
   });
 

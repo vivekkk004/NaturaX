@@ -1,0 +1,47 @@
+# MongoDB (single-node replica set, so transactions are on) + the app.
+#   docker compose up --build            -> http://localhost:5000
+#   docker compose exec app node server/scripts/seed.js     (demo data)
+# Note: written for the assessment but not executed on the development machine (no Docker there).
+services:
+  mongo:
+    image: mongo:8.0
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    ports:
+      - '27018:27017' # 27018 on the host, so it doesn't clash with a locally installed MongoDB
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first start, then reports healthy once it is ready.
+      test:
+        [
+          'CMD',
+          'mongosh',
+          '--quiet',
+          '--eval',
+          "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  app:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - '5000:5000'
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/naturax_followup?replicaSet=rs0
+      CLIENT_ORIGIN: http://localhost:5000
+      # Override in a .env file next to this compose file for anything beyond a local demo.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-demo-secret-change-me-0123456789abcdef}
+    volumes:
+      - uploads:/app/server/uploads
+
+volumes:
+  mongo-data:
+  uploads:

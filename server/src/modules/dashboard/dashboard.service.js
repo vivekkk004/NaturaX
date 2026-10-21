@@ -134,6 +134,7 @@ export async function getDashboard(query, user) {
       id: task._id,
       orderId: task.orderId,
       ruleType: task.ruleType,
+      priority: task.priority,
       reason: task.reason,
       actionRequired: task.actionRequired,
       status: task.status,

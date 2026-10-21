@@ -207,3 +207,17 @@ RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
   the real services (audited), reassigns an overdue task, runs a catch-up evaluation, writes today's sample.
 - Not yet done: browser walkthrough of the UI, docker-compose, Part 10 docs (BUSINESS_IMPACT,
   INTERVIEW_PREP, final README/API/ARCHITECTURE updates for the frontend).
+- **UI verification (headless Microsoft Edge via playwright-core, run outside the repo):** the Chrome
+  extension wasn't connected, so the installed Edge was driven instead. A smoke run visited every
+  page as manager, employee and on a phone-sized screen; a second, isolated instance (own database,
+  upload folder and ports) performed all five live-interview challenges through the UI - all passed.
+- **Bugs found by the UI run and fixed:**
+  - Session restore ran twice at start-up (React StrictMode) with the same single-use refresh
+    cookie; the losing call could log the user out. `restoreSession` now only runs from `idle`.
+  - Dashboard high-priority rows lacked `priority`, so the badge showed no label (regression test added).
+  - Missing favicon (404).
+- **Production mode:** Express serves `client/dist` (SERVE_CLIENT, default on in production) with
+  long-lived caching for hashed assets and an SPA fallback; verified in Edge (deep link, reload,
+  no CSP errors). Vite proxy target configurable via `API_PROXY_TARGET`.
+- **Docker:** multi-stage `Dockerfile` (non-root user) and `docker-compose.yml` (MongoDB replica set
+  with self-initialising healthcheck + app). Not executed - Docker is not installed on this machine.

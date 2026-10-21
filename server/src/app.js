@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -6,10 +8,29 @@ import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
+import { CLIENT_DIST_PATH } from './config/paths.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes.js';
+
+/**
+ * Production: serve the built React app. Hashed assets are cached long-term; every other
+ * non-API path returns index.html so client-side routes (/tasks, /reports ...) work on reload.
+ */
+function serveClient(app) {
+  const indexFile = path.join(CLIENT_DIST_PATH, 'index.html');
+  if (!fs.existsSync(indexFile)) {
+    logger.warn(`SERVE_CLIENT is on but ${indexFile} is missing - run "npm run build" first`);
+    return;
+  }
+  app.use(
+    '/assets',
+    express.static(path.join(CLIENT_DIST_PATH, 'assets'), { immutable: true, maxAge: '1y' }),
+  );
+  app.use(express.static(CLIENT_DIST_PATH, { index: false }));
+  app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(indexFile));
+}
 
 /**
  * Builds the Express app without starting a server. Keeping `listen()` out of here lets
@@ -63,6 +84,8 @@ export function createApp() {
   );
 
   app.use('/api', apiLimiter, apiRoutes);
+
+  if (env.serveClient) serveClient(app);
 
   app.use(notFound);
   app.use(errorHandler);

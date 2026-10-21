@@ -24,6 +24,10 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 
+  // Serve the built React app (client/dist) from Express: one process, one port.
+  // Defaults to on in production; development uses the Vite dev server instead.
+  SERVE_CLIENT: z.enum(['true', 'false']).optional(),
+
   // Rule engine scheduler
   RULE_ENGINE_CRON: z
     .string()
@@ -47,6 +51,9 @@ function loadEnv() {
     ...result.data,
     isProduction: result.data.NODE_ENV === 'production',
     isTest: result.data.NODE_ENV === 'test',
+    serveClient: result.data.SERVE_CLIENT
+      ? result.data.SERVE_CLIENT === 'true'
+      : result.data.NODE_ENV === 'production',
   });
 }
 

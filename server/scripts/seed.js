@@ -150,7 +150,11 @@ async function main() {
   console.log('Running the rule engine for today (as the scheduler would)...');
   const catchUp = await runRuleEvaluation({ now, note: 'Scheduled rule evaluation' });
 
-  const sample = await writeSampleFiles(SAMPLE_DIR, { now });
+  // Convenience only: e.g. inside the Docker image the app folder is read-only for the app user.
+  const sample = await writeSampleFiles(SAMPLE_DIR, { now }).catch((err) => {
+    console.warn(`Could not write sample files to ${SAMPLE_DIR}: ${err.message}`);
+    return { meta: { referenceTimeIst: 'not written' } };
+  });
 
   const [open, inProgressNow, resolvedNow, overdue] = await Promise.all([
     Task.countDocuments({ status: TASK_STATUS.OPEN }),

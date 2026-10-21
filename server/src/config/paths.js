@@ -12,6 +12,9 @@ export const SERVER_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.u
  */
 export const UPLOAD_PATH = path.resolve(SERVER_ROOT, env.UPLOAD_DIR);
 
+/** Production build of the React app (`npm run build`). */
+export const CLIENT_DIST_PATH = path.resolve(SERVER_ROOT, '..', 'client', 'dist');
+
 export function ensureUploadDir() {
   fs.mkdirSync(UPLOAD_PATH, { recursive: true });
 }

@@ -17,6 +17,12 @@ export const restoreSession = createAsyncThunk(
       return rejectWithValue(toApiError(error));
     }
   },
+  {
+    // Run at most once at a time. Refresh tokens are single-use: two parallel restores (e.g.
+    // React StrictMode running the start-up effect twice) would send the same cookie twice, the
+    // second call would fail, and could log the user out depending on which reply came last.
+    condition: (_, { getState }) => getState().auth.status === 'idle',
+  },
 );
 
 export const login = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
