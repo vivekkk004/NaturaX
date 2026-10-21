@@ -22,8 +22,10 @@ describe('deployment-related configuration', () => {
     expect(env.CLIENT_ORIGIN).toEqual(['https://natura-x.vercel.app', 'http://localhost:5173']);
   });
 
-  it('defaults to a strict cookie, no proxy trust outside production, 1 proxy in production', async () => {
-    expect(await loadEnv({})).toMatchObject({ COOKIE_SAME_SITE: 'strict', trustProxy: 0 });
+  it('leaves the cookie mode automatic and trusts one proxy only in production', async () => {
+    const devEnv = await loadEnv({});
+    expect(devEnv.COOKIE_SAME_SITE).toBeUndefined();
+    expect(devEnv.trustProxy).toBe(0);
     expect((await loadEnv({ NODE_ENV: 'production' })).trustProxy).toBe(1);
   });
 

@@ -99,33 +99,38 @@ machine (Docker is not installed there); the production build they use was verif
 
 ## Deploying: UI on Vercel, API on Render, database on Atlas
 
-The UI and API live on different sites, which normally means CORS and cross-site cookies. To avoid
-both, **Vercel forwards `/api/*` to Render** (`client/vercel.json`), so the browser only ever talks
-to the Vercel domain: no CORS, and the refresh cookie stays first-party (`SameSite=Strict`).
+Live: UI **https://natura-x.vercel.app** · API **https://naturax.onrender.com** (health: `/api/health`).
 
-**Vercel** (project Root Directory = `client`, framework Vite):
+The UI calls the API on another site directly:
 
-- Do **not** set `VITE_API_BASE_URL` (or set it to `/api`) – requests go to `/api` on the Vercel
-  domain and are rewritten to Render.
-- `client/vercel.json` also sends every other path to `index.html`, so reloading `/tasks` works.
-- If the API URL changes, update the `destination` in `client/vercel.json`.
+- **API URL:** `client/.env.production` sets `VITE_API_BASE_URL=https://naturax.onrender.com/api`
+  (a value set in the Vercel dashboard overrides it; "with or without `/api`" both work).
+- **CORS:** the API allows only the origins in `CLIENT_ORIGIN`, with credentials.
+- **Login cookie:** in production the API automatically sends the refresh cookie as
+  `SameSite=None; Secure` to an allowed UI on another site, so sessions survive reloads (verified
+  with a cross-site local setup). Safari blocks third-party cookies by default – there, users log
+  in again after a reload; everything else works.
+- Render's free tier sleeps when idle: the first request can take ~50 s (the UI waits up to 70 s).
+
+**Vercel** (project Root Directory = `client`, framework Vite): no variables needed.
+`client/vercel.json` sends every path to `index.html`, so reloading `/tasks` works.
 
 **Render** (Web Service, Root Directory = `server`, build `npm install`, start `node src/server.js`):
 
-| Variable            | Value                                                                  |
-| ------------------- | ---------------------------------------------------------------------- |
-| `NODE_ENV`          | `production`                                                           |
-| `MONGODB_URI`       | `mongodb+srv://USER:PASSWORD@cluster…mongodb.net/naturax_followup`     |
-| `JWT_ACCESS_SECRET` | long random string                                                     |
-| `CLIENT_ORIGIN`     | `https://natura-x.vercel.app` (needed only for direct calls; harmless) |
-| `SERVE_CLIENT`      | `false` (the UI is on Vercel)                                          |
+| Variable            | Value                                                              |
+| ------------------- | ------------------------------------------------------------------ |
+| `NODE_ENV`          | `production`                                                       |
+| `MONGODB_URI`       | `mongodb+srv://USER:PASSWORD@cluster…mongodb.net/naturax_followup` |
+| `JWT_ACCESS_SECRET` | long random string                                                 |
+| `CLIENT_ORIGIN`     | `https://natura-x.vercel.app` (exact, required for CORS)           |
+| `SERVE_CLIENT`      | `false` (the UI is on Vercel)                                      |
 
 **Atlas → Network Access:** allow `0.0.0.0/0` (Render's IPs change); the database user and password
 still protect the cluster.
 
-_Alternative without the rewrite:_ set `VITE_API_BASE_URL=https://<api>.onrender.com/api` on Vercel,
-`CLIENT_ORIGIN=https://<ui>.vercel.app` and `COOKIE_SAME_SITE=none` on Render. Works in Chrome; Safari
-blocks such third-party cookies, so users there must log in again after a reload.
+_Alternative (first-party cookie everywhere, incl. Safari):_ add a Vercel rewrite
+`{ "source": "/api/:path*", "destination": "https://naturax.onrender.com/api/:path*" }` before the
+`index.html` rule in `client/vercel.json` and set `VITE_API_BASE_URL=/api` on Vercel.
 
 ## Environment variables (`server/.env`)
 

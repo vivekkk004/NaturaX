@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+# The client's production API URL is public configuration, not a secret
+!client/.env.production
 
 # build output
 dist/

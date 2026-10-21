@@ -35,10 +35,10 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
-  // Refresh-cookie SameSite mode. "strict" when UI and API share a site (Vite proxy, Vercel rewrite,
-  // Express serving the UI). Use "none" only if the UI calls the API on another site directly;
-  // the cookie is then always Secure (HTTPS) and some browsers (Safari) may still block it.
-  COOKIE_SAME_SITE: z.enum(['strict', 'lax', 'none']).default('strict'),
+  // Refresh-cookie SameSite mode. Leave unset for automatic: "strict" when UI and API share a site,
+  // "none" (always Secure) in production when an allowed UI origin calls the API from another site
+  // (e.g. Vercel UI -> Render API). Set explicitly only to override.
+  COOKIE_SAME_SITE: z.enum(['strict', 'lax', 'none']).optional(),
 
   // Serve the built React app (client/dist) from Express: one process, one port.
   // Defaults to on in production; development uses the Vite dev server instead.

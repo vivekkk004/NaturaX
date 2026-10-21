@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { formatCurrency, formatDateTime, formatDeadline, formatDuration } from './format';
 import { describeChange } from './auditFormat';
-import { toApiError } from '../services/api';
+import { resolveApiBaseUrl, toApiError } from '../services/api';
 import { cleanParams } from '../services/params';
 
 describe('format helpers', () => {
@@ -61,6 +61,17 @@ describe('service helpers', () => {
     expect(toApiError({ request: {}, message: 'Network Error' }).message).toBe(
       'Cannot reach the server',
     );
+  });
+
+  it('accepts the API origin with or without /api', () => {
+    expect(resolveApiBaseUrl('https://naturax.onrender.com')).toBe(
+      'https://naturax.onrender.com/api',
+    );
+    expect(resolveApiBaseUrl('https://naturax.onrender.com/api/')).toBe(
+      'https://naturax.onrender.com/api',
+    );
+    expect(resolveApiBaseUrl(undefined)).toBe('/api');
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
   });
 
   it('drops empty filters from query strings', () => {

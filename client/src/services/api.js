@@ -1,11 +1,22 @@
 import axios from 'axios';
 
 /**
+ * API location. Development: "/api" through the Vite proxy. Production: VITE_API_BASE_URL from
+ * client/.env.production (or the hosting dashboard). Accepts the server's origin with or without
+ * the "/api" suffix: "https://naturax.onrender.com" and ".../api" both work.
+ */
+export function resolveApiBaseUrl(configured) {
+  const value = (configured ?? '').trim().replace(/\/+$/, '');
+  if (!value) return '/api';
+  return /\/api$/.test(value) ? value : `${value}/api`;
+}
+
+/**
  * The single configured HTTP client. Every service module imports this instance;
  * components never import axios directly.
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
   withCredentials: true, // send the httpOnly refresh-token cookie
   // Generous: a free-tier host (e.g. Render) can take ~50 s to wake up on the first request.
   timeout: 70_000,
