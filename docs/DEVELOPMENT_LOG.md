@@ -160,3 +160,24 @@ RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
 
 - Explicit deadlines lost their milliseconds (the date parser works to the second) – a test
   expectation was adjusted; second precision is intended for deadlines.
+
+## Part 6 – Dashboard and daily report APIs
+
+**Built**
+
+- `GET /dashboard` – totals (orders, needs correction, orders requiring attention, open, in
+  progress, resolved, unresolved, overdue, high priority), by category, by priority, employee-wise
+  pending (incl. idle employees and unassigned), 10 most urgent high-priority cases, last import.
+  Filterable by date, exception type, employee, priority; employees see their own numbers.
+- `modules/tasks/taskStats.js` – shared overdue expression and employee workload aggregation.
+- `GET /reports/daily` (JSON preview) and `GET /reports/daily/csv` (streamed, all or one section).
+- `utils/csvStream.js` – backpressure-aware CSV writer + download headers with BOM.
+- Error handler: hands over to Express if a streamed response fails mid-way.
+- Tests: 113 passing (dashboard numbers under every filter, employee scoping, report sections,
+  CSV headers/BOM/content parsed back, single-section download, RBAC).
+
+**Issues met and fixed**
+
+- A cleanup test counted files in the shared test upload folder; with more test files uploading
+  in parallel it became flaky. It now checks for a unique marker in the uploaded content instead
+  (3 consecutive green runs).

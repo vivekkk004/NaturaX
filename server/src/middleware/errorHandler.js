@@ -53,8 +53,15 @@ function normalizeError(err) {
   return null; // unknown -> programming error / infrastructure failure
 }
 
-// Express recognises error middleware by its 4 parameters, so `_next` must stay in the signature.
-export function errorHandler(err, req, res, _next) {
+// Express recognises error middleware by its 4 parameters, so `next` must stay in the signature.
+export function errorHandler(err, req, res, next) {
+  // A streamed response (CSV download) may fail after headers were sent: a JSON error body is no
+  // longer possible, so hand over to Express, which aborts the connection.
+  if (res.headersSent) {
+    req.log?.error({ err }, 'Error after response started');
+    return next(err);
+  }
+
   const known = normalizeError(err);
   const statusCode = known?.statusCode ?? 500;
 

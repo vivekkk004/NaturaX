@@ -7,6 +7,8 @@ import orderRoutes from './modules/orders/order.routes.js';
 import ruleRoutes from './modules/rules/rule.routes.js';
 import taskRoutes from './modules/tasks/task.routes.js';
 import auditRoutes from './modules/audit/audit.routes.js';
+import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import reportRoutes from './modules/reports/report.routes.js';
 
 /** Single place where every feature module is mounted under /api. */
 const router = Router();
@@ -19,5 +21,7 @@ router.use('/orders', orderRoutes);
 router.use('/rules', ruleRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/audit', auditRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

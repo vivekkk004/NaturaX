@@ -217,3 +217,21 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
   because inheriting a deadline that has already passed tells them nothing.
 - `slaBreached` stays `true`, so "% of tasks resolved within SLA" is not flattered by reassignment;
   the audit entry records how late the task was, old and new owner and old and new deadline.
+
+## D28. Dashboard: one endpoint, one `$facet` aggregation
+
+- All task widgets come from one aggregation with `$facet` over the filtered tasks; order counts
+  run in parallel. One request per filter change, one consistent snapshot (all numbers computed at
+  the same `now`), and the same filter builder as the task list – a widget and the list it links
+  to can never disagree.
+- **Rejected:** one endpoint per widget (six round trips, numbers computed at different moments).
+
+## D29. Daily report: streamed CSV with backpressure
+
+- Rows are read with a MongoDB cursor and written to the response one by one; when the client is
+  slow, writing pauses until the socket drains. Memory use stays flat however large the report.
+- csv-stringify does the escaping (commas, quotes, newlines in reasons); a UTF-8 BOM makes Excel
+  show "₹" and names correctly. "New" is date-based; the other sections are a snapshot of the
+  current state – a historical "as it was on date X" view would need event sourcing from the audit log.
+- If an error happens after the download started, the error handler hands over to Express, which
+  aborts the connection (a JSON error body is impossible once CSV headers were sent).

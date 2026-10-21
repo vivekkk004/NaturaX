@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -34,6 +35,14 @@ beforeEach(async () => {
   manager = await loginAs(app, ROLES.MANAGER, { employeeCode: 'MGR001' });
   employee = await createUser({ employeeCode: 'EMP001', name: 'Priya Sharma' });
 });
+
+// Test files run in parallel and share the upload folder, so "count files before/after" would be
+// flaky. Instead each test uploads unique content and checks that no stored file contains it.
+const uniqueMarker = () => `CLEANUP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+const storedFileContaining = (marker) =>
+  (fs.existsSync(UPLOAD_PATH) ? fs.readdirSync(UPLOAD_PATH) : []).find((name) =>
+    fs.readFileSync(path.join(UPLOAD_PATH, name), 'utf8').includes(marker),
+  );
 
 const upload = (content, name = 'orders.csv', auth = manager.auth) =>
   request(app)
@@ -174,12 +183,12 @@ describe('file-level errors', () => {
   });
 
   it('rejects disallowed extensions without leaving a file behind', async () => {
-    const before = fs.existsSync(UPLOAD_PATH) ? fs.readdirSync(UPLOAD_PATH).length : 0;
-    const res = await upload('hello', 'orders.txt');
+    const marker = uniqueMarker();
+    const res = await upload(marker, 'orders.txt');
 
     expect(res.status).toBe(400);
     expect(res.body.error.message).toContain('Only .csv and .xlsx');
-    expect(fs.existsSync(UPLOAD_PATH) ? fs.readdirSync(UPLOAD_PATH).length : 0).toBe(before);
+    expect(storedFileContaining(marker)).toBeUndefined();
   });
 
   it('detects a file whose content does not match its extension', async () => {
@@ -195,17 +204,17 @@ describe('file-level errors', () => {
   });
 
   it('validates the asOf field and cleans up the uploaded file', async () => {
-    const before = fs.existsSync(UPLOAD_PATH) ? fs.readdirSync(UPLOAD_PATH).length : 0;
+    const marker = uniqueMarker();
     const res = await request(app)
       .post('/api/imports')
       .set(manager.auth)
       .field('asOf', 'not-a-date')
-      .attach('file', Buffer.from(csv(GOOD)), 'orders.csv');
+      .attach('file', Buffer.from(csv(GOOD.replace('ORD-1', marker))), 'orders.csv');
 
     expect(res.status).toBe(400);
     expect(res.body.error.details[0].field).toBe('asOf');
-    await new Promise((r) => setTimeout(r, 50)); // cleanup runs on response 'finish'
-    expect(fs.readdirSync(UPLOAD_PATH).length).toBe(before);
+    await new Promise((r) => setTimeout(r, 100)); // cleanup runs on response 'finish'
+    expect(storedFileContaining(marker)).toBeUndefined();
   });
 
   it('allows only managers to import', async () => {

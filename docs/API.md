@@ -442,3 +442,109 @@ Read-only (no create/update/delete endpoints exist). Query: `action`, `orderId` 
   "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
 }
 ```
+
+---
+
+## Dashboard – Manager (everything) / Employee (own numbers)
+
+### `GET /dashboard`
+
+Filters (the PDF's four): `dateFrom`, `dateTo` (order date, IST days), `ruleType`, `assignedTo`
+(user id or `unassigned`), `priority`. Order counts use date + employee; task widgets use all four.
+
+```json
+{
+  "data": {
+    "generatedAt": "2026-10-21T07:00:00.000Z",
+    "totals": {
+      "totalOrders": 120,
+      "needsCorrection": 9,
+      "ordersRequiringAttention": 41,
+      "openTasks": 30,
+      "inProgressTasks": 6,
+      "resolvedTasks": 12,
+      "unresolvedTasks": 36,
+      "overdueTasks": 11,
+      "highPriorityUnresolved": 14
+    },
+    "byCategory": [
+      {
+        "ruleType": "FAILED_DELIVERY",
+        "label": "Failed delivery",
+        "total": 9,
+        "unresolved": 7,
+        "overdue": 3
+      }
+    ],
+    "byPriority": [
+      { "priority": "HIGH", "unresolved": 14 },
+      { "priority": "MEDIUM", "unresolved": 15 },
+      { "priority": "LOW", "unresolved": 7 }
+    ],
+    "byEmployee": [
+      {
+        "employeeId": "6716…",
+        "name": "Rahul Verma",
+        "employeeCode": "EMP002",
+        "open": 5,
+        "inProgress": 2,
+        "overdue": 3,
+        "highPriority": 4,
+        "total": 7
+      }
+    ],
+    "highPriorityCases": [
+      {
+        "id": "6716…",
+        "orderId": "ORD-1042",
+        "ruleType": "FAILED_DELIVERY",
+        "reason": "…",
+        "deadline": "…",
+        "isOverdue": true,
+        "assignedTo": { "name": "Rahul Verma" }
+      }
+    ],
+    "lastImport": {
+      "originalName": "orders_sample.csv",
+      "createdAt": "…",
+      "summary": {},
+      "taskSummary": {}
+    }
+  }
+}
+```
+
+- "Orders requiring attention" = distinct orders with at least one unresolved task.
+- `byCategory` always lists all six categories (zeros included); `byEmployee` lists idle active
+  employees too (manager, no employee filter) plus an "Unassigned" row; most overdue first.
+- `highPriorityCases` = the 10 most urgent unresolved HIGH tasks.
+
+---
+
+## Reports – **Manager only**
+
+### `GET /reports/daily?date=2026-10-21`
+
+JSON for the Reports page: counts and a preview (first 100 rows) of each section, plus
+employee-wise pending actions. `date` defaults to today (IST).
+
+| Section key        | Meaning                                                 |
+| ------------------ | ------------------------------------------------------- |
+| `new`              | tasks first detected on `date` (IST day)                |
+| `unresolved`       | all open + in-progress tasks (current state)            |
+| `overdue`          | unresolved and past deadline (current state)            |
+| `high-priority`    | unresolved HIGH-priority tasks                          |
+| `employee-pending` | per employee: open, in progress, overdue, high priority |
+
+### `GET /reports/daily/csv?date=2026-10-21&section=all`
+
+Streamed CSV download (`Content-Type: text/csv; charset=utf-8`,
+`Content-Disposition: attachment; filename="daily-exception-report-2026-10-21.csv"`, UTF-8 BOM for Excel).
+
+- `section=all` (default): the four task sections in one table with a `Section` column, a blank
+  line, then the employee-wise summary with its own header.
+- `section=new|unresolved|overdue|high-priority|employee-pending`: a single plain table.
+
+Task columns: Section, Order ID, Exception, Priority, Status, Reason, Action Required, Assigned To,
+Employee Code, Customer, Phone, Order Value (INR), Payment, Order Status, Order Date, Detected At,
+Deadline, Overdue, Overdue By (hours), SLA Breached. Dates are IST (`DD-MM-YYYY HH:mm`).
