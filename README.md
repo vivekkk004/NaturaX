@@ -11,17 +11,18 @@ Pvt Ltd (NaturaX).
 
 ## Features
 
-| PDF requirement           | Where / how                                                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A. Order data import      | **Import orders** page: CSV/XLSX upload, row-by-row report of missing fields, duplicate order IDs, invalid dates (+ phone, amount, status checks) |
-| B. Automatic rule engine  | 5 rules (+ data-correction rule), one class each; thresholds stored in MongoDB and editable on **Rule settings**                                  |
-| C. Task assignment        | Each exception = a task with order + customer, reason, priority, owner, action, deadline, status; manager reassigns                               |
-| D. Dashboard              | Total orders, orders requiring attention, open/overdue, by category, employee-wise, high-priority – 4 filters                                     |
-| E. Daily exception report | **Daily report** page + streamed CSV: new, unresolved, overdue, high-priority, employee-wise pending                                              |
-| F. Audit trail            | Every creation, assignment, status change, reassignment, reopen, auto-resolve and rule change; old → new values                                   |
-| Persistence               | MongoDB – tasks and audit records survive refreshes and restarts                                                                                  |
-| Validation & errors       | Zod on every request, central error handler, consistent `{ error: { code, message, details } }`                                                   |
-| Duplicate prevention      | Unique index `(orderId, ruleType)` + content hash – re-uploading a file creates **0** new tasks                                                   |
+| PDF requirement           | Where / how                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Order data import      | **Import orders** page: CSV/XLSX upload, row-by-row report of missing fields, duplicate order IDs, invalid dates (+ phone, amount, status checks)     |
+| B. Automatic rule engine  | 5 rules (+ data-correction rule), one class each; thresholds stored in MongoDB and editable on **Rule settings**                                      |
+| C. Task assignment        | Each exception = a task with order + customer, reason, priority, owner, action, deadline, status; manager reassigns                                   |
+| Kanban board              | Tasks as a **List** or a **Board** (Open / In progress / Resolved): drag a card to change its status – mouse, touch and keyboard; role rules enforced |
+| D. Dashboard              | Total orders, orders requiring attention, open/overdue, by category, employee-wise, high-priority – 4 filters                                         |
+| E. Daily exception report | **Daily report** page + streamed CSV: new, unresolved, overdue, high-priority, employee-wise pending                                                  |
+| F. Audit trail            | Every creation, assignment, status change, reassignment, reopen, auto-resolve and rule change; old → new values                                       |
+| Persistence               | MongoDB – tasks and audit records survive refreshes and restarts                                                                                      |
+| Validation & errors       | Zod on every request, central error handler, consistent `{ error: { code, message, details } }`                                                       |
+| Duplicate prevention      | Unique index `(orderId, ruleType)` + content hash – re-uploading a file creates **0** new tasks                                                       |
 
 Also: JWT access token + rotating refresh cookie, Manager/Employee roles enforced by the API, a
 15-minute scheduler for time-based rules, and a deterministic sample-data generator.
