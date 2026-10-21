@@ -78,24 +78,23 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Seeded demo accounts - shown only in development builds. */}
-        {import.meta.env.DEV && (
-          <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white/60 p-3 text-xs text-slate-600">
-            <p className="mb-2 font-medium">Demo accounts</p>
-            <div className="flex gap-2">
-              {DEMO_LOGINS.map((d) => (
-                <button
-                  key={d.email}
-                  type="button"
-                  className="btn-secondary h-8 flex-1 text-xs"
-                  onClick={() => setForm({ email: d.email, password: d.password })}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
+        {/* Seeded demo accounts, kept in every build so reviewers can try both roles quickly.
+            A real deployment would remove this block. */}
+        <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white/60 p-3 text-xs text-slate-600">
+          <p className="mb-2 font-medium">Demo accounts</p>
+          <div className="flex gap-2">
+            {DEMO_LOGINS.map((d) => (
+              <button
+                key={d.email}
+                type="button"
+                className="btn-secondary h-8 flex-1 text-xs"
+                onClick={() => setForm({ email: d.email, password: d.password })}
+              >
+                {d.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </main>
   );

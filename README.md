@@ -45,7 +45,7 @@ npm run seed                                  # demo users + yesterday's orders,
 npm run dev                                   # API http://localhost:5000 + UI http://localhost:5173
 ```
 
-Open **http://localhost:5173** and sign in (demo buttons are shown on the login page in development).
+Open **http://localhost:5173** and sign in (the login page has one-click **Manager** / **Employee** demo buttons).
 
 Secret: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
 
