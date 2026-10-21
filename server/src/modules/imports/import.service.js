@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { withTransaction } from '../../config/db.js';
+import { logger } from '../../config/logger.js';
 import { SERVER_ROOT, UPLOAD_PATH } from '../../config/paths.js';
 import { DATA_STATUS } from '../../constants/order.js';
 import { IMPORT_STATUS, ISSUE, ROW_OUTCOME, SEVERITY } from '../../constants/importIssues.js';
@@ -12,6 +13,7 @@ import { ImportBatch, MAX_STORED_ISSUES } from '../../models/ImportBatch.js';
 import { Order } from '../../models/Order.js';
 import { User } from '../../models/User.js';
 import { paginate } from '../../utils/pagination.js';
+import { runRuleEvaluation } from '../rules/ruleEvaluation.service.js';
 
 /**
  * Hash of what the row *means* (normalised values), not how it was typed: "₹5,000" and "5000"
@@ -154,21 +156,42 @@ function mapRows(headers, rows) {
 }
 
 /**
+ * Runs the rule engine after a successful import. Orders are already committed at this point,
+ * so a failure here must not turn the import into an error: it is recorded on the batch and
+ * the manager can simply click "Run rules now" (evaluation is idempotent).
+ */
+async function evaluateAfterImport(batch, now, actor) {
+  try {
+    const taskSummary = await runRuleEvaluation({
+      now,
+      actor,
+      note: `Rule engine after import of ${batch.originalName}`,
+    });
+    batch.set({ taskSummary, ruleEvaluationError: null });
+  } catch (err) {
+    logger.error({ err, importBatchId: batch.id }, 'Rule evaluation after import failed');
+    batch.set({ ruleEvaluationError: 'Rule evaluation failed - run it again from the rules page' });
+  }
+  await batch.save();
+}
+
+/**
  * The import pipeline:
- * record batch -> parse file -> map columns -> validate rows -> upsert orders -> save report.
+ * record batch -> parse file -> map columns -> validate rows -> upsert orders -> save report
+ * -> run the rule engine (creates / reopens / auto-resolves tasks).
  * A batch record is created first, so even a file that fails completely leaves a trace
  * (who uploaded what, when, and why it failed).
  *
- * @param {{ file: Express.Multer.File, uploadedBy: string, asOf?: Date }} input
+ * @param {{ file: Express.Multer.File, actor: { id, name }, asOf?: Date }} input
  */
-export async function importOrders({ file, uploadedBy, asOf }) {
+export async function importOrders({ file, actor, asOf }) {
   const now = asOf ?? new Date();
   const batch = await ImportBatch.create({
     originalName: file.originalname,
     filePath: path.relative(SERVER_ROOT, file.path).split(path.sep).join('/'),
     fileType: file.fileType,
     fileSize: file.size,
-    uploadedBy,
+    uploadedBy: actor.id,
     asOf: now,
   });
 
@@ -193,7 +216,6 @@ export async function importOrders({ file, uploadedBy, asOf }) {
       });
       await batch.save({ session });
     });
-    return batch;
   } catch (err) {
     await ImportBatch.updateOne(
       { _id: batch._id },
@@ -208,6 +230,9 @@ export async function importOrders({ file, uploadedBy, asOf }) {
     if (err instanceof AppError) err.details = { ...err.details, importBatchId: batch.id };
     throw err;
   }
+
+  await evaluateAfterImport(batch, now, actor);
+  return batch;
 }
 
 export async function listImports({ page, limit, sort, status }) {

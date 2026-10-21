@@ -73,9 +73,12 @@ server/
 │  │                    rowValidator (pure)
 │  ├─ middleware/       auth (authenticate/authorize), validate, upload, rateLimiter,
 │  │                    notFound, errorHandler
-│  ├─ models/           User, RefreshToken, Order, ImportBatch (+ plugins/toJSON)
-│  ├─ modules/          health, auth, users, imports, orders (tasks, rules, dashboard,
-│  │                    reports, audit added in later parts)
+│  ├─ jobs/             ruleEvaluation.job.js (node-cron, every 15 min)
+│  ├─ models/           User, RefreshToken, Order, ImportBatch, RuleConfig, Task,
+│  │                    AuditLog (+ plugins/toJSON)
+│  ├─ modules/          health, auth, users, imports, orders, rules, tasks (sync),
+│  │                    audit (dashboard, reports added in later parts)
+│  ├─ rule-engine/      BaseRule, rules/*.rule.js, registry, engine (pure), format
 │  └─ utils/            dates (IST), pagination, tokens, validation
 ├─ scripts/             initReplicaSet.js, seedUsers.js (+ full seed, sample generator later)
 ├─ tests/               unit/ and integration/
@@ -107,14 +110,39 @@ flowchart TD
   H --> V[validateRows - pure, now injected<br/>normalise, validate, in-file duplicates]
   V --> O[persistOrders: upsert by orderId<br/>same hash -> skip, invalid never overwrites valid]
   O --> R[ImportBatch COMPLETED<br/>summary + row-by-row issues]
-  R -.Part 4.-> E[rule engine -> idempotent tasks]
+  R --> E[rule engine -> idempotent tasks<br/>taskSummary saved on the batch]
 ```
 
-Orders and the batch summary are written in one `withTransaction` block.
+Orders and the batch summary are written in one `withTransaction` block; the rule engine then
+runs over all relevant orders (not just this file's), so time-based rules stay current.
 
-## 7. Planned components (later parts)
+## 7. Rule engine and task sync (Part 4)
 
-- **Rule engine:** one class per rule (`applies`, `buildException`), thresholds in the
-  `ruleconfigs` collection, injectable `now` (Part 4).
-- **Tasks + audit:** reassignment/status changes with append-only audit log (Part 5).
+```mermaid
+sequenceDiagram
+  participant T as Trigger (import / cron / Run now)
+  participant S as ruleEvaluation.service
+  participant E as engine (pure)
+  participant Y as taskSync.service
+  participant DB as MongoDB
+  T->>S: runRuleEvaluation({ now, actor })
+  S->>DB: load ruleconfigs, mark SLA breaches
+  S->>DB: cursor over relevant orders (chunks of 500)
+  loop each chunk (one transaction)
+    S->>E: evaluate(orders, rules, now)
+    E-->>S: [{ order, exceptions }]
+    S->>Y: syncTasks(evaluations)
+    Y->>DB: upsert new tasks on unique (orderId, ruleType)
+    Y->>DB: refresh / reopen / auto-resolve (conditional updates)
+    Y->>DB: insert audit entries
+  end
+  S-->>T: summary { created, reopened, autoResolved, ... }
+```
+
+Details, the idempotency table and how to change or add a rule: [RULE_ENGINE.md](RULE_ENGINE.md).
+
+## 8. Planned components (later parts)
+
+- **Task APIs + audit APIs:** list/filter tasks, status changes, reassignment (transaction with
+  audit), audit trail queries (Part 5).
 - **Dashboard + daily CSV report** with server-side filters and streamed CSV (Part 6).

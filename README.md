@@ -7,7 +7,8 @@ records every change in an append-only audit trail. Built as the technical asses
 "D2C Order Follow-up Automation System" for Vitanatura Elements Pvt Ltd (NaturaX).
 
 > **Build status:** being built in parts – see [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md).
-> Parts 1–3 are complete: project setup, auth/users/RBAC, order import with validation.
+> Parts 1–4 are complete: project setup, auth/users/RBAC, order import with validation,
+> rule engine with configurable rules and duplicate-free task generation.
 
 ## Features (target scope)
 
@@ -82,6 +83,8 @@ Health endpoint: `GET http://localhost:5000/api/health`.
 | `JWT_ACCESS_EXPIRES_IN`     | `15m`                                        | Access-token lifetime                           |
 | `REFRESH_TOKEN_TTL_DAYS`    | `7`                                          | Refresh-token (cookie) lifetime                 |
 | `BCRYPT_SALT_ROUNDS`        | `12`                                         | Password hashing cost                           |
+| `RULE_ENGINE_CRON`          | `*/15 * * * *`                               | How often rules re-run (cron, IST)              |
+| `RULE_ENGINE_CRON_ENABLED`  | `true`                                       | Turn the scheduled re-evaluation off/on         |
 
 Generate a secret: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
 
@@ -138,4 +141,5 @@ Created by `npm run seed:users -w server`:
 - [Architecture](docs/ARCHITECTURE.md) · [Database](docs/DATABASE.md) · [API](docs/API.md) ·
   [Design decisions](docs/DESIGN_DECISIONS.md) · [Development log](docs/DEVELOPMENT_LOG.md)
 - [Sample data](sample-data/README.md) – files to upload, with the expected result of every row.
-- Rule engine, business impact and interview prep docs are added as their parts are built.
+- [Rule engine](docs/RULE_ENGINE.md) – every rule, idempotency, how to change or add a rule.
+- Business impact and interview prep docs are added as their parts are built.

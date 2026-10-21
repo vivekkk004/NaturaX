@@ -96,3 +96,77 @@ One document per uploaded file – the persisted row-by-row error report.
 | ---------------------------------- | ---------------------------- |
 | `{ createdAt: -1 }`                | import history, newest first |
 | `{ uploadedBy: 1, createdAt: -1 }` | "my uploads"                 |
+
+## ruleconfigs
+
+The live, manager-editable configuration of each rule – the **source of truth** for thresholds.
+
+| Field           | Type     | Notes                                                                              |
+| --------------- | -------- | ---------------------------------------------------------------------------------- |
+| `ruleType`      | String   | **unique** – `UNCONFIRMED_ORDER`, `DISPATCH_DELAY`, …                              |
+| `enabled`       | Boolean  | disabled rules never fire                                                          |
+| `params`        | Object   | rule-specific, validated by the rule's Zod schema, e.g. `{ "thresholdHours": 24 }` |
+| `priority`      | String   | `HIGH` \| `MEDIUM` \| `LOW` given to new tasks                                     |
+| `deadlineHours` | Number   | task deadline = detection time + this                                              |
+| `action`        | String   | recommended next action copied into each task                                      |
+| `updatedBy`     | ObjectId | → users                                                                            |
+
+Index: `{ ruleType: 1 }` unique. Defaults are inserted on first start (`$setOnInsert`), never overwritten.
+
+## tasks
+
+One document per exception (exception and task are 1:1).
+
+| Field                                                                          | Type             | Notes                                                                                                         |
+| ------------------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `orderId`, `order`                                                             | String, ObjectId | business key + reference to the order                                                                         |
+| `ruleType`                                                                     | String           | exception category                                                                                            |
+| `reason`                                                                       | String           | with real numbers: "Order unconfirmed for 5h 12m (limit 2h)"                                                  |
+| `priority`                                                                     | String           | `HIGH` \| `MEDIUM` \| `LOW`                                                                                   |
+| `actionRequired`                                                               | String           | recommended next action                                                                                       |
+| `deadline`                                                                     | Date             | detection time + rule's `deadlineHours`                                                                       |
+| `customer.name/phone`, `orderValue`, `orderDate`, `paymentType`, `orderStatus` | –                | **snapshot** of the order for lists, filters and reports without joins; refreshed when the order data changes |
+| `assignedTo`                                                                   | ObjectId         | → users; `null` = unassigned queue                                                                            |
+| `status`                                                                       | String           | `OPEN` \| `IN_PROGRESS` \| `RESOLVED`                                                                         |
+| `detectedAt`, `lastDetectedAt`                                                 | Date             | first and latest evaluation that saw the problem                                                              |
+| `resolvedAt`, `resolvedBy`, `resolutionNote`                                   | –                | `resolvedBy = null` with `resolvedAt` set = auto-resolved by the system                                       |
+| `reopenCount`                                                                  | Number           | how often the problem came back                                                                               |
+| `slaBreached`                                                                  | Boolean          | set once the deadline was missed; kept after reassignment (honest SLA metrics)                                |
+| `sourceHash`                                                                   | String           | order content hash at last sync – drives reopen / auto-resolve                                                |
+
+**Overdue is not stored**: it is `status ≠ RESOLVED AND deadline < now`, computed in queries so it can never be stale.
+
+| Index                                       | Why                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------ |
+| `{ orderId: 1, ruleType: 1 }` **unique**    | **idempotency**: at most one task per order per rule, enforced by the DB |
+| `{ assignedTo: 1, status: 1, deadline: 1 }` | "my open tasks", employee-wise pending, per-employee overdue             |
+| `{ status: 1, deadline: 1 }`                | overdue queries                                                          |
+| `{ ruleType: 1, priority: 1, status: 1 }`   | exceptions by category, priority filters, high-priority widget           |
+| `{ detectedAt: -1 }`                        | daily report "new exceptions"                                            |
+| `{ orderDate: -1 }`                         | dashboard date filter                                                    |
+
+## auditlogs
+
+**Append-only** trail of every assignment, status change, reassignment, reopen, auto-resolve and rule change.
+
+| Field                         | Type     | Notes                                                                                            |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `action`                      | String   | `TASK_CREATED, TASK_ASSIGNED, STATUS_CHANGED, REASSIGNED, REOPENED, AUTO_RESOLVED, RULE_UPDATED` |
+| `task`, `orderId`, `ruleType` | –        | what it is about (rule changes have only `ruleType`)                                             |
+| `performedBy`                 | ObjectId | responsible user; `null` = System (scheduler)                                                    |
+| `performedByName`             | String   | snapshot of the name at the time                                                                 |
+| `oldValue`, `newValue`        | Object   | e.g. `{ "params": { "thresholdHours": 24 } }` → `{ … 12 }`                                       |
+| `note`                        | String   | context ("Rule engine after import of orders.csv")                                               |
+| `createdAt`                   | Date     | the timestamp (no `updatedAt` – entries never change)                                            |
+
+Append-only enforcement: Mongoose middleware throws on every update/delete operation and on re-saving
+an existing entry; the API has no update/delete endpoint. Entries are written in the same
+transaction as the change they describe.
+
+| Index                               | Why                     |
+| ----------------------------------- | ----------------------- |
+| `{ orderId: 1, createdAt: -1 }`     | history of an order     |
+| `{ task: 1, createdAt: -1 }`        | history of a task       |
+| `{ action: 1, createdAt: -1 }`      | filter by action type   |
+| `{ performedBy: 1, createdAt: -1 }` | "what did this user do" |
+| `{ createdAt: -1 }`                 | latest activity         |

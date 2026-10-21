@@ -1,3 +1,4 @@
+import cron from 'node-cron';
 import { z } from 'zod';
 
 /**
@@ -22,6 +23,16 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+
+  // Rule engine scheduler
+  RULE_ENGINE_CRON: z
+    .string()
+    .default('*/15 * * * *')
+    .refine((expr) => cron.validate(expr), 'RULE_ENGINE_CRON must be a valid cron expression'),
+  RULE_ENGINE_CRON_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
 });
 
 function loadEnv() {

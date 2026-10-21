@@ -5,7 +5,7 @@ export async function upload(req, res) {
   res.locals.uploadClaimed = true;
   const batch = await importService.importOrders({
     file: req.file,
-    uploadedBy: req.user.id,
+    actor: { id: req.user.id, name: req.user.name },
     asOf: req.body.asOf,
   });
   res.status(201).json({ data: batch });

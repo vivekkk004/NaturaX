@@ -152,3 +152,51 @@ Each entry: the decision, why, and what was rejected. Added as the project is bu
 - ExcelJS depends on an old `uuid` with a moderate advisory. `npm audit fix --force` would have
   _downgraded_ ExcelJS by a major version. Instead, an npm `overrides` entry pins `uuid@^11.1.1`;
   ExcelJS was re-tested and `npm audit` reports 0 vulnerabilities.
+
+## D21. Rule engine: one class per rule, pure evaluation, config in the database
+
+- **Pluggable:** each rule is a class with `matches/reason` (+ inherited `applies/buildException`);
+  a registry lists them. Adding a rule never touches the engine or the other rules.
+- **Pure:** `evaluate(orders, rules, now)` has no I/O and no clock, so rules are unit-tested with a
+  fixed `now`, demos are reproducible with `asOf`, and the same function serves imports, the scheduler
+  and manual runs.
+- **Config in MongoDB** (`ruleconfigs`), validated by each rule's own Zod schema: a manager changes
+  "24 h → 12 h" in the UI/API without a deploy, and the change is audited. Code defaults only seed an
+  empty database.
+- **Rejected:** a generic JSON rules DSL (e.g. json-rules-engine) – flexible, but harder to read,
+  test and explain than five small classes, and the rules here need date arithmetic and custom reasons.
+
+## D22. Idempotent task generation: unique `(orderId, ruleType)` + content hash
+
+- The unique compound index is the real guarantee: duplicates are impossible even with concurrent
+  runs or multiple server instances. Creation is an upsert with `$setOnInsert`, so an existing task
+  is matched, never duplicated.
+- Tasks change only when **order data** changes (`sourceHash`): identical re-uploads are no-ops,
+  resolved tasks reopen only if the data changed and the problem persists, open tasks auto-resolve
+  only when new data shows the problem is gone.
+- Loosening or disabling a rule does **not** auto-close open tasks – someone may be working on them;
+  a human decides.
+- Reopen/auto-resolve use conditional updates (expected status + hash in the filter), so with
+  concurrent runs only one wins and only the winner writes an audit entry.
+- **Rejected:** "delete and recreate tasks on each import" – loses status, assignee and history;
+  "dedupe in application code only" – races between two uploads would still create duplicates.
+
+## D23. Scheduled re-evaluation every 15 minutes (small addition beyond the PDF)
+
+- Time-based rules (unconfirmed > 2 h, dispatch > 24 h, past expected delivery) become true by time
+  passing alone. Without a scheduler, an order would only be flagged at the next upload. Configurable
+  via `RULE_ENGINE_CRON`, can be disabled; runs are serialised with imports in-process.
+- In a multi-instance deployment this would move to a single worker or a distributed lock.
+
+## D24. Data-correction tasks (small addition beyond the PDF)
+
+- The PDF says bad-data orders must not be flagged by rules. Without a task they would sit unnoticed
+  in a bucket. A low-priority `DATA_CORRECTION` task gives them an owner and a deadline, and it
+  auto-resolves when a corrected file is uploaded – after which the real rules apply.
+
+## D25. Audit trail append-only by construction
+
+- Mongoose middleware rejects every update/delete query and re-saves on `AuditLog`; there is no
+  update/delete endpoint; entries are written in the same transaction as the change. The responsible
+  user's name is snapshotted. Limitation: someone with direct DB access can still alter data –
+  production would use DB roles without update/delete on this collection, or WORM storage.

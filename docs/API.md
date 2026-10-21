@@ -245,3 +245,76 @@ GET /api/orders?dataStatus=NEEDS_CORRECTION&sort=orderId&limit=10
 ### `GET /orders/:id`
 
 `404` for an unknown order – and also for an employee asking for someone else's order (existence is not revealed).
+
+---
+
+## Rules – **Manager only**
+
+### `GET /rules`
+
+All rules with their live configuration, in evaluation order.
+
+```json
+{
+  "data": [
+    {
+      "ruleType": "DISPATCH_DELAY",
+      "label": "Dispatch delay",
+      "description": "Confirmed order not dispatched within the threshold after it was placed.",
+      "paramFields": [
+        { "key": "thresholdHours", "label": "Must dispatch within", "unit": "hours" }
+      ],
+      "enabled": true,
+      "params": { "thresholdHours": 24 },
+      "priority": "MEDIUM",
+      "deadlineHours": 8,
+      "action": "Escalate to the warehouse to pack and dispatch today. ...",
+      "updatedBy": null,
+      "updatedAt": "2026-10-21T06:20:00.000Z"
+    }
+  ]
+}
+```
+
+### `GET /rules/:ruleType`
+
+One rule. Unknown `ruleType` → `400`.
+
+### `PATCH /rules/:ruleType`
+
+Any of `enabled` (bool), `params` (object of numbers – partial, merged), `priority`
+(`HIGH|MEDIUM|LOW`), `deadlineHours` (0.25–720), `action` (5–500 chars).
+
+```json
+{ "params": { "thresholdHours": 12 } }
+```
+
+`200` with the updated rule. `400` with `details[].field = "params.thresholdHours"` for an invalid
+or unknown parameter. Every effective change writes a `RULE_UPDATED` audit entry with old → new values.
+Takes effect on the next evaluation.
+
+### `POST /rules/evaluate`
+
+Runs the rule engine over all relevant orders now. Body (optional): `{ "asOf": "2026-10-20T18:00" }`.
+
+```json
+{
+  "data": {
+    "asOf": "2026-10-21T06:23:09.300Z",
+    "evaluatedOrders": 16,
+    "created": 1,
+    "reopened": 0,
+    "autoResolved": 0,
+    "refreshed": 0,
+    "unchanged": 16,
+    "createdByRule": { "DISPATCH_DELAY": 1 },
+    "durationMs": 41
+  }
+}
+```
+
+### Import response – `taskSummary`
+
+`POST /imports` runs the rule engine right after a successful import and includes the same
+summary as `data.taskSummary`. If the evaluation itself fails, the import still succeeds and
+`data.ruleEvaluationError` explains that rules should be run again.

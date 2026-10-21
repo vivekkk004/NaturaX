@@ -53,6 +53,20 @@ const importBatchSchema = new mongoose.Schema(
     },
     rowIssues: { type: [rowIssueSchema], default: [] },
     rowIssuesTruncated: { type: Boolean, default: false },
+
+    // What the rule engine did right after this import (tasks created / reopened / auto-resolved).
+    taskSummary: {
+      asOf: Date,
+      evaluatedOrders: Number,
+      created: Number,
+      reopened: Number,
+      autoResolved: Number,
+      refreshed: Number,
+      unchanged: Number,
+      createdByRule: { type: mongoose.Schema.Types.Mixed, default: undefined },
+      durationMs: Number,
+    },
+    ruleEvaluationError: { type: String, default: null },
   },
   { timestamps: true },
 );

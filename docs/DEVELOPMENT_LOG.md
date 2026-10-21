@@ -110,3 +110,33 @@ A running record of what was built in each part and why.
 - While updating docs, a PowerShell 5.1 find-and-replace read two UTF-8 Markdown files as ANSI and
   corrupted their special characters (mojibake). Both files were restored from git and re-edited
   with an encoding-safe tool; a repo-wide search confirmed no other file was affected.
+
+## Part 4 – Rule engine, configurable rules, idempotent task generation
+
+**Built**
+
+- `rule-engine/` – `BaseRule` contract, five PDF rules + data-correction rule (one class each),
+  `registry.js`, pure `engine.js`, reason formatting (durations, rupees).
+- Models: `RuleConfig` (manager-editable thresholds/priority/deadline/action), `Task` (unique
+  `{orderId, ruleType}`, order snapshot, SLA flag, source hash), `AuditLog` (append-only enforced).
+- `modules/tasks/taskSync.service.js` – idempotent create / refresh / reopen / auto-resolve with
+  audit entries (TASK_CREATED, TASK_ASSIGNED, REOPENED, AUTO_RESOLVED).
+- `modules/rules` – list/get/update rule configs (validated per rule, audited as RULE_UPDATED),
+  `POST /rules/evaluate` with optional `asOf`; evaluation service scanning relevant orders in
+  chunks, one transaction per chunk, serialised runs, SLA-breach marking.
+- Import now runs the engine automatically and stores `taskSummary` on the import batch.
+- `jobs/ruleEvaluation.job.js` – node-cron every 15 min (IST), configurable/disable-able.
+- `docs/RULE_ENGINE.md` – rules, triggers, idempotency table, how to change and add a rule
+  (the add-a-rule example was executed to verify it works).
+- Tests: 93 passing (15 rule unit tests incl. boundaries and the 24→12 h change; 13 lifecycle
+  integration tests incl. re-upload, concurrency, time passing, auto-resolve, reopen, append-only),
+  also verified with `TZ=UTC`.
+
+**Live verification (real MongoDB):** demo file → 16 tasks; same file again → 0 created;
+15-hour-old confirmed order → no task at 24 h, task after `PATCH thresholdHours: 12` + re-run,
+RULE_UPDATED audit with 24 → 12. Demo data removed afterwards.
+
+**Issues met and fixed**
+
+- An integration test used `new Date('2026-10-20T18:00')`, which depends on the machine's timezone
+  and would fail on a UTC CI server → replaced with an explicit IST helper; suite re-run with `TZ=UTC`.

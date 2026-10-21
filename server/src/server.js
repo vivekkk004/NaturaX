@@ -3,11 +3,15 @@ import { logger } from './config/logger.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { ensureUploadDir } from './config/paths.js';
 import { createApp } from './app.js';
+import { ensureRuleConfigs } from './modules/rules/ruleConfig.service.js';
+import { startRuleEvaluationJob } from './jobs/ruleEvaluation.job.js';
 
 /** Process entry point: connect infrastructure first, then accept traffic. */
 async function start() {
   ensureUploadDir();
   await connectDB(env.MONGODB_URI);
+  await ensureRuleConfigs(); // seeds default rule configs on first start; never overwrites edits
+  const ruleJob = startRuleEvaluationJob();
 
   const app = createApp();
   const server = app.listen(env.PORT, () => {
@@ -18,6 +22,7 @@ async function start() {
   // then close the DB pool. Prevents half-written imports when the process is stopped.
   const shutdown = (signal) => {
     logger.info(`${signal} received, shutting down`);
+    ruleJob?.stop();
     server.close(async () => {
       await disconnectDB();
       logger.info('Shutdown complete');
