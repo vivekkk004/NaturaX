@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+/* Brand colours (NaturaX green) exposed as Tailwind utilities: bg-brand-600, text-brand-700 ... */
+@theme {
+  --color-brand-50: #f0f9f1;
+  --color-brand-100: #dcf1df;
+  --color-brand-500: #4caf5c;
+  --color-brand-600: #3a9149;
+  --color-brand-700: #2f733b;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}

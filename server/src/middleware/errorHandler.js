@@ -1,0 +1,66 @@
+import mongoose from 'mongoose';
+import { AppError } from '../errors/index.js';
+import { env } from '../config/env.js';
+
+/**
+ * Translates well-known library errors into our AppError shape, so the response
+ * format is identical no matter where the error came from.
+ */
+function normalizeError(err) {
+  if (err instanceof AppError) return err;
+
+  // Malformed JSON body (thrown by express.json()).
+  if (err.type === 'entity.parse.failed') {
+    return new AppError('Request body is not valid JSON', { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  if (err.type === 'entity.too.large') {
+    return new AppError('Request body is too large', {
+      statusCode: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+    });
+  }
+
+  if (err instanceof mongoose.Error.ValidationError) {
+    const details = Object.values(err.errors).map((e) => ({ field: e.path, message: e.message }));
+    return new AppError('Validation failed', {
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details,
+    });
+  }
+  if (err instanceof mongoose.Error.CastError) {
+    return new AppError(`Invalid value for ${err.path}`, { statusCode: 400, code: 'BAD_REQUEST' });
+  }
+  // Unique index violation, e.g. a second user with the same email.
+  if (err.code === 11000) {
+    const fields = Object.keys(err.keyValue ?? {});
+    return new AppError(`Duplicate value for ${fields.join(', ') || 'a unique field'}`, {
+      statusCode: 409,
+      code: 'CONFLICT',
+      details: err.keyValue,
+    });
+  }
+
+  return null; // unknown -> programming error / infrastructure failure
+}
+
+// Express recognises error middleware by its 4 parameters, so `_next` must stay in the signature.
+export function errorHandler(err, req, res, _next) {
+  const known = normalizeError(err);
+  const statusCode = known?.statusCode ?? 500;
+
+  // 5xx = bug or outage: log the full stack. 4xx = client mistake: the request logger
+  // already records it at "warn", we just attach the reason to that same log line.
+  if (statusCode >= 500) req.log?.error({ err }, 'Unhandled error');
+  else res.locals.errorMessage = `${known.code}: ${known.message}`;
+
+  res.status(statusCode).json({
+    error: {
+      code: known?.code ?? 'INTERNAL_ERROR',
+      // Never leak internal messages / stack traces for unexpected errors in production.
+      message: known?.message ?? (env.isProduction ? 'Something went wrong' : err.message),
+      ...(known?.details !== undefined && { details: known.details }),
+      requestId: req.id,
+    },
+  });
+}

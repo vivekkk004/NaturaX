@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# environment files (secrets) - only the .env.example templates are committed
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+coverage/
+
+# uploaded files are runtime data, not source code
+server/uploads/*
+!server/uploads/.gitkeep
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# assessment brief from the company - keep it out of the (possibly public) repository
+/*.pdf
